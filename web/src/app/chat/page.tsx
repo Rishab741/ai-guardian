@@ -5,18 +5,12 @@ import Link from "next/link";
 import { api } from "@/lib/api";
 import type { ChatResponse, Department } from "@/lib/types";
 import { AssistantBubble, UserBubble } from "@/components/ChatMessage";
+import { DepartmentSelect } from "@/components/DepartmentSelect";
 import { CHAT_SCRIPT } from "@/lib/demoScript";
+import { DEFAULT_DEPARTMENT_PROMPTS, DEPARTMENT_PROMPTS } from "@/lib/departmentPrompts";
+import { departmentColor } from "@/lib/palette";
 
 type Message = { id: string; role: "user"; text: string } | { id: string; role: "assistant"; result: ChatResponse };
-
-const SUGGESTIONS = [
-  "Analyze the risk exposure for our SME lending portfolio this quarter",
-  "Draft a response to the customer complaint regarding account 4111 1111 1111 1111",
-  "What is the TFN validation rule we use for onboarding? Example: 123 456 782",
-  "Summarize APRA CPS 230 operational resilience obligations for our board pack",
-  "Reconcile the Medicare provider number 2123 45670 1 against our claims record",
-  "Call this customer back on 0412 345 678 to confirm their new address",
-];
 
 export default function ChatPage() {
   const [departments, setDepartments] = useState<Department[]>([]);
@@ -28,23 +22,39 @@ export default function ChatPage() {
   const [guidedOpen, setGuidedOpen] = useState(false);
   const [scriptIndex, setScriptIndex] = useState(0);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     api
       .departments()
       .then(setDepartments)
       .catch(() => setError("Cannot reach the AI Control Gateway. Is the FastAPI backend running on :8000?"));
+
+    const params = new URLSearchParams(window.location.search);
+    const dept = params.get("department");
+    if (dept) setDepartment(dept);
+    if (params.get("openGuided") === "1") setGuidedOpen(true);
   }, []);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [messages, loading]);
 
+  function handleInputChange(e: React.ChangeEvent<HTMLTextAreaElement>) {
+    setInput(e.target.value);
+    const el = textareaRef.current;
+    if (el) {
+      el.style.height = "auto";
+      el.style.height = `${Math.min(el.scrollHeight, 128)}px`;
+    }
+  }
+
   async function send(text: string, deptOverride?: string) {
     const dept = deptOverride ?? department;
     if (!text.trim() || loading) return;
     setError(null);
     setInput("");
+    if (textareaRef.current) textareaRef.current.style.height = "auto";
     setMessages((m) => [...m, { id: crypto.randomUUID(), role: "user", text }]);
     setLoading(true);
     try {
@@ -90,6 +100,8 @@ export default function ChatPage() {
 
   const currentStep = CHAT_SCRIPT[scriptIndex];
   const scriptDone = scriptIndex >= CHAT_SCRIPT.length;
+  const suggestions = DEPARTMENT_PROMPTS[department] ?? DEFAULT_DEPARTMENT_PROMPTS;
+  const activeDeptLabel = departments.find((d) => d.id === department)?.label;
 
   return (
     <div className="flex h-full flex-col">
@@ -112,20 +124,10 @@ export default function ChatPage() {
             <PlayIcon />
             Guided Demo
           </button>
-          <label className="flex items-center gap-2 text-[12.5px] text-[var(--text-secondary)]">
-            Acting as
-            <select
-              value={department}
-              onChange={(e) => setDepartment(e.target.value)}
-              className="rounded-lg border border-[var(--border-hairline)] bg-[var(--surface-1)] px-2.5 py-1.5 text-[12.5px] font-medium text-[var(--text-primary)] outline-none focus:border-[var(--brand)]"
-            >
-              {departments.map((d) => (
-                <option key={d.id} value={d.id}>
-                  {d.label}
-                </option>
-              ))}
-            </select>
-          </label>
+          <div className="flex items-center gap-2">
+            <span className="text-[12.5px] text-[var(--text-secondary)]">Acting as</span>
+            <DepartmentSelect departments={departments} value={department} onChange={setDepartment} />
+          </div>
         </div>
       </header>
 
@@ -134,22 +136,41 @@ export default function ChatPage() {
           <div ref={scrollRef} className="flex-1 overflow-y-auto px-6 py-5">
             <div className="mx-auto flex max-w-3xl flex-col gap-4">
               {messages.length === 0 && (
-                <div className="flex flex-col items-center gap-4 pt-16 text-center">
-                  <div className="text-[13.5px] text-[var(--text-muted)]">
-                    Try a prompt containing sensitive Australian identifiers &mdash; the gateway will redact it live, or open{" "}
-                    <button onClick={() => setGuidedOpen(true)} className="font-medium text-[var(--brand)] underline underline-offset-2">
-                      Guided Demo
-                    </button>{" "}
-                    for a scripted walkthrough.
+                <div className="fade-up flex flex-col items-center gap-5 pt-14 text-center">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[color-mix(in_srgb,var(--brand)_10%,transparent)]">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+                      <path
+                        d="M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v8A2.5 2.5 0 0 1 17.5 16H10l-4.5 4v-4H6.5A2.5 2.5 0 0 1 4 13.5v-8Z"
+                        stroke="var(--brand)"
+                        strokeWidth="1.7"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
                   </div>
-                  <div className="flex max-w-xl flex-wrap justify-center gap-2">
-                    {SUGGESTIONS.map((s) => (
+                  <div>
+                    <div className="text-[15px] font-semibold text-[var(--text-primary)]">
+                      Ask as {activeDeptLabel ?? "your department"}
+                    </div>
+                    <p className="mt-1 max-w-md text-[13px] leading-relaxed text-[var(--text-muted)]">
+                      Try a prompt with sensitive Australian identifiers and watch the gateway redact it live, or open{" "}
+                      <button onClick={() => setGuidedOpen(true)} className="font-medium text-[var(--brand)] underline underline-offset-2">
+                        Guided Demo
+                      </button>{" "}
+                      for a scripted walkthrough.
+                    </p>
+                  </div>
+                  <div className="grid w-full max-w-xl grid-cols-1 gap-2 sm:grid-cols-2">
+                    {suggestions.map((s) => (
                       <button
-                        key={s}
-                        onClick={() => send(s)}
-                        className="rounded-full border border-[var(--border-hairline)] bg-[var(--surface-raised)] px-3 py-1.5 text-left text-[12px] text-[var(--text-secondary)] transition-colors hover:border-[var(--brand)] hover:text-[var(--text-primary)]"
+                        key={s.text}
+                        onClick={() => send(s.text)}
+                        className="group flex flex-col items-start gap-1.5 rounded-xl border border-[var(--border-hairline)] bg-[var(--surface-raised)] px-3.5 py-3 text-left transition-all duration-150 hover:-translate-y-0.5 hover:border-[var(--brand)]/40 hover:shadow-[0_8px_20px_-8px_rgba(0,0,0,0.15)]"
                       >
-                        {s}
+                        <span className="text-[12.5px] leading-snug text-[var(--text-primary)]">{s.text}</span>
+                        <span className="inline-flex items-center gap-1.5 text-[10.5px] font-medium text-[var(--text-muted)]">
+                          <span className="h-1.5 w-1.5 rounded-full" style={{ background: departmentColor(department) }} />
+                          {s.hint}
+                        </span>
                       </button>
                     ))}
                   </div>
@@ -191,8 +212,9 @@ export default function ChatPage() {
               className="mx-auto flex max-w-3xl items-end gap-2"
             >
               <textarea
+                ref={textareaRef}
                 value={input}
-                onChange={(e) => setInput(e.target.value)}
+                onChange={handleInputChange}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && !e.shiftKey) {
                     e.preventDefault();
@@ -201,12 +223,12 @@ export default function ChatPage() {
                 }}
                 rows={1}
                 placeholder="Ask a business question..."
-                className="max-h-32 flex-1 resize-none rounded-xl border border-[var(--border-hairline)] bg-[var(--surface-1)] px-3.5 py-2.5 text-[13.5px] text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)] focus:border-[var(--brand)]"
+                className="max-h-32 flex-1 resize-none rounded-xl border border-[var(--border-hairline)] bg-[var(--surface-1)] px-3.5 py-2.5 text-[13.5px] text-[var(--text-primary)] outline-none transition-colors placeholder:text-[var(--text-muted)] focus:border-[var(--brand)]"
               />
               <button
                 type="submit"
                 disabled={loading || !input.trim()}
-                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[var(--brand)] text-[var(--brand-ink)] transition-opacity disabled:opacity-40"
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[var(--brand)] text-[var(--brand-ink)] transition-all disabled:opacity-40 enabled:hover:scale-105 enabled:active:scale-95"
               >
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
                   <path d="M4 12h15m0 0-6-6m6 6-6 6" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
@@ -233,7 +255,7 @@ export default function ChatPage() {
               {CHAT_SCRIPT.map((_, i) => (
                 <div
                   key={i}
-                  className="h-1 flex-1 rounded-full"
+                  className="h-1 flex-1 rounded-full transition-colors"
                   style={{ background: i < scriptIndex ? "var(--status-good)" : i === scriptIndex ? "var(--brand)" : "var(--gridline)" }}
                 />
               ))}

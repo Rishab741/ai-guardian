@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useTheme } from "@/components/ThemeProvider";
 
 const NAV = [
   { href: "/chat", label: "AI Chat Console", icon: ChatIcon },
@@ -11,6 +12,7 @@ const NAV = [
 
 export function Sidebar() {
   const pathname = usePathname();
+  const { theme, setTheme, resolvedDark } = useTheme();
 
   return (
     <aside className="flex h-full w-64 shrink-0 flex-col border-r border-[var(--border-hairline)] bg-[var(--surface-1)]">
@@ -24,25 +26,52 @@ export function Sidebar() {
         </div>
       </div>
 
-      <nav className="flex flex-1 flex-col gap-0.5 px-3 py-2">
+      <div className="px-3">
+        <button
+          onClick={() => window.dispatchEvent(new Event("sf:toggle-palette"))}
+          className="flex w-full items-center gap-2 rounded-lg border border-[var(--border-hairline)] bg-[var(--surface-raised)] px-2.5 py-1.5 text-[12px] text-[var(--text-muted)] transition-colors hover:text-[var(--text-secondary)]"
+        >
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
+            <circle cx="11" cy="11" r="7" stroke="currentColor" strokeWidth="2" />
+            <path d="M21 21l-4.3-4.3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+          </svg>
+          Quick actions
+          <kbd className="ml-auto rounded border border-[var(--border-hairline)] bg-[var(--surface-1)] px-1.5 py-0.5 text-[10px] font-medium">
+            &#8984;K
+          </kbd>
+        </button>
+      </div>
+
+      <nav className="flex flex-1 flex-col gap-0.5 px-3 py-3">
         {NAV.map(({ href, label, icon: Icon }) => {
           const active = pathname === href || pathname?.startsWith(href + "/");
           return (
             <Link
               key={href}
               href={href}
-              className={`flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+              className={`relative flex items-center gap-2.5 rounded-lg py-2 pl-3 pr-3 text-[13px] font-medium transition-colors ${
                 active
-                  ? "bg-[var(--brand)] text-[var(--brand-ink)]"
+                  ? "bg-[color-mix(in_srgb,var(--brand)_11%,transparent)] text-[var(--brand)]"
                   : "text-[var(--text-secondary)] hover:bg-[var(--surface-raised)] hover:text-[var(--text-primary)]"
               }`}
             >
+              {active && <span className="absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-full bg-[var(--brand)]" />}
               <Icon active={active} />
               {label}
             </Link>
           );
         })}
       </nav>
+
+      <div className="px-3 pb-2">
+        <button
+          onClick={() => setTheme(theme === "dark" ? "light" : theme === "light" ? "system" : "dark")}
+          className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-[12.5px] font-medium text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface-raised)] hover:text-[var(--text-primary)]"
+        >
+          {resolvedDark ? <MoonIcon /> : <SunIcon />}
+          {theme === "system" ? "System theme" : theme === "dark" ? "Dark theme" : "Light theme"}
+        </button>
+      </div>
 
       <div className="mx-3 mb-3 rounded-lg border border-[var(--border-hairline)] bg-[var(--surface-raised)] px-3 py-2.5">
         <div className="flex items-center gap-1.5 text-[11px] font-medium text-[var(--text-secondary)]">
@@ -101,6 +130,28 @@ function ShieldIcon({ active }: { active: boolean }) {
         strokeLinejoin="round"
       />
       <path d="M9 12l2 2 4-4.2" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function SunIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
+      <circle cx="12" cy="12" r="4.5" stroke="currentColor" strokeWidth="1.8" />
+      <path
+        d="M12 2.5v2.5M12 19v2.5M4.9 4.9l1.8 1.8M17.3 17.3l1.8 1.8M2.5 12H5M19 12h2.5M4.9 19.1l1.8-1.8M17.3 6.7l1.8-1.8"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
+function MoonIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
+      <path d="M20 14.5A8.5 8.5 0 1 1 9.5 4a7 7 0 0 0 10.5 10.5Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
     </svg>
   );
 }

@@ -82,27 +82,45 @@ export default function DashboardPage() {
         )}
 
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
-          <StatCard label="Requests Intercepted" value={summary ? summary.total_requests.toLocaleString() : "—"} />
+          <StatCard
+            label="Requests Intercepted"
+            loading={!summary}
+            numericValue={summary?.total_requests ?? 0}
+            format={(v) => Math.round(v).toLocaleString()}
+            icon={<InboxIcon />}
+          />
           <StatCard
             label="PII Fields Redacted"
-            value={summary ? summary.total_pii_redactions.toLocaleString() : "—"}
+            loading={!summary}
+            numericValue={summary?.total_pii_redactions ?? 0}
+            format={(v) => Math.round(v).toLocaleString()}
             sub="before leaving the gateway"
+            icon={<LockIcon />}
           />
           <StatCard
             label="Cache Hit Rate"
-            value={summary ? `${(summary.cache_hit_rate * 100).toFixed(0)}%` : "—"}
+            loading={!summary}
+            numericValue={(summary?.cache_hit_rate ?? 0) * 100}
+            format={(v) => `${v.toFixed(0)}%`}
             sub="model calls avoided"
+            icon={<BoltIcon />}
           />
           <StatCard
             label="Projected Annual Value"
-            value={roi ? formatCompact(roi.total_annual_value_usd) : "—"}
+            loading={!roi}
+            numericValue={roi?.total_annual_value_usd ?? 0}
+            format={formatCompact}
             sub="enterprise scale — see Discovery Report"
             accent="good"
+            icon={<TrendIcon />}
           />
           <StatCard
             label="Policy Violations Blocked"
-            value={summary ? summary.blocked_requests.toLocaleString() : "—"}
+            loading={!summary}
+            numericValue={summary?.blocked_requests ?? 0}
+            format={(v) => Math.round(v).toLocaleString()}
             accent={summary && summary.blocked_requests > 0 ? "critical" : "neutral"}
+            icon={<BlockIcon />}
           />
         </div>
 
@@ -177,5 +195,45 @@ export default function DashboardPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+function InboxIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+      <path d="M3 12h5l2 3h4l2-3h5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M5.5 5h13l2.5 7v7a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-7l2.5-7Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+    </svg>
+  );
+}
+function LockIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+      <rect x="5" y="11" width="14" height="9" rx="1.5" stroke="currentColor" strokeWidth="1.8" />
+      <path d="M8 11V7.5a4 4 0 0 1 8 0V11" stroke="currentColor" strokeWidth="1.8" />
+    </svg>
+  );
+}
+function BoltIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+      <path d="M13 2 4 14h6l-1 8 9-12h-6l1-8Z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />
+    </svg>
+  );
+}
+function TrendIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+      <path d="M3 17l6-6 4 4 8-8" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M15 7h6v6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+function BlockIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+      <circle cx="12" cy="12" r="8.5" stroke="currentColor" strokeWidth="1.8" />
+      <path d="M6.3 6.3l11.4 11.4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
   );
 }

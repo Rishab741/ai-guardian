@@ -76,6 +76,40 @@
   }
 }
 
+/* Explicit override so the in-app theme toggle can force dark regardless of
+   OS preference — the media query above only handles the OS-driven case. */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  --surface-1: #1a1a19;
+  --surface-page: #0d0d0d;
+  --surface-raised: #232322;
+  --text-primary: #ffffff;
+  --text-secondary: #c3c2b7;
+  --text-muted: #898781;
+  --gridline: #2c2c2a;
+  --baseline: #383835;
+  --border-hairline: rgba(255, 255, 255, 0.1);
+
+  --series-1: #3987e5;
+  --series-2: #d95926;
+  --series-3: #199e70;
+  --series-4: #c98500;
+  --series-5: #d55181;
+  --series-6: #008300;
+  --series-7: #9085e9;
+  --series-8: #e66767;
+
+  --status-good: #0ca30c;
+  --status-good-contrast-text: #0ca30c;
+  --status-warning: #fab219;
+  --status-serious: #ec835a;
+  --status-critical: #d03b3b;
+
+  --background: var(--surface-page);
+  --foreground: var(--text-primary);
+}
+
 * {
   box-sizing: border-box;
 }
@@ -86,13 +120,26 @@ body {
 }
 
 body {
-  background: var(--background);
+  background:
+    radial-gradient(ellipse 1200px 600px at 15% -10%, color-mix(in srgb, var(--brand) 6%, transparent), transparent),
+    var(--background);
   color: var(--foreground);
   font-family: var(--font-sans), system-ui, -apple-system, "Segoe UI", sans-serif;
 }
 
 ::selection {
   background: color-mix(in srgb, var(--brand) 30%, transparent);
+}
+
+/* Theme-affected surfaces cross-fade instead of hard-cutting on toggle. */
+.theme-transition,
+.theme-transition * {
+  transition: background-color 0.25s ease, border-color 0.25s ease, color 0.25s ease, fill 0.25s ease, stroke 0.25s ease !important;
+}
+
+:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
 }
 
 .tabular {
@@ -115,4 +162,39 @@ body {
 
 .fade-up {
   animation: fabric-fade-up 0.25s ease-out;
+}
+
+@keyframes fabric-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.fade-in {
+  animation: fabric-fade-in 0.18s ease-out;
+}
+
+@keyframes fabric-pop {
+  from { opacity: 0; transform: scale(0.97) translateY(-4px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.pop-in {
+  animation: fabric-pop 0.16s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes fabric-shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--gridline) 25%,
+    color-mix(in srgb, var(--gridline) 50%, var(--surface-raised)) 50%,
+    var(--gridline) 75%
+  );
+  background-size: 200% 100%;
+  animation: fabric-shimmer 1.6s ease-in-out infinite;
+  border-radius: 6px;
 }

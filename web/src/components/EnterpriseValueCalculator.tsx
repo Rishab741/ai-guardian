@@ -4,6 +4,11 @@ import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import type { RoiPreset, RoiProjection } from "@/lib/types";
 import { formatCompact } from "@/lib/format";
+import { useCountUp } from "@/lib/useCountUp";
+
+function AnimatedFigure({ value }: { value: number }) {
+  return <>{formatCompact(useCountUp(value))}</>;
+}
 
 const FALLBACK_PRESETS: Record<string, RoiPreset> = {
   mid: { label: "Mid-size enterprise", employees: 5_000, queries_per_day: 10 },
@@ -116,7 +121,7 @@ export function EnterpriseValueCalculator() {
               Total Estimated Annual Value
             </div>
             <div className="tabular mt-1 text-[36px] font-bold leading-none text-[var(--status-good-contrast-text)]">
-              {formatCompact(projection.total_annual_value_usd)}
+              <AnimatedFigure value={projection.total_annual_value_usd} />
             </div>
           </div>
 
@@ -124,7 +129,7 @@ export function EnterpriseValueCalculator() {
             <div className="rounded-lg border border-[var(--border-hairline)] px-4 py-3">
               <div className="text-[11.5px] font-medium text-[var(--text-muted)]">FinOps Compute Savings</div>
               <div className="tabular mt-1 text-[19px] font-semibold text-[var(--text-primary)]">
-                {formatCompact(projection.finops_annual_savings_usd)}
+                <AnimatedFigure value={projection.finops_annual_savings_usd} />
               </div>
               <p className="mt-1.5 text-[11px] leading-snug text-[var(--text-secondary)]">
                 Observed ${projection.observed.avg_savings_per_request_usd.toFixed(5)}/request savings rate from this
@@ -134,7 +139,7 @@ export function EnterpriseValueCalculator() {
             <div className="rounded-lg border border-[var(--border-hairline)] px-4 py-3">
               <div className="text-[11.5px] font-medium text-[var(--text-muted)]">Risk Exposure Avoided</div>
               <div className="tabular mt-1 text-[19px] font-semibold text-[var(--text-primary)]">
-                {formatCompact(projection.risk_avoided_usd)}
+                <AnimatedFigure value={projection.risk_avoided_usd} />
               </div>
               <p className="mt-1.5 text-[11px] leading-snug text-[var(--text-secondary)]">
                 Average cost of a single reportable data breach ({projection.risk_avoided_source}) &mdash; this pilot alone

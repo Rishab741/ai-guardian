@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
-import { Sidebar } from "@/components/Sidebar";
+import { AppShell } from "@/components/AppShell";
+import { NO_FLASH_SCRIPT } from "@/components/ThemeProvider";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -24,11 +25,11 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: NO_FLASH_SCRIPT }} />
+      </head>
       <body className="min-h-full">
-        <div className="flex h-screen overflow-hidden bg-[var(--surface-page)]">
-          <Sidebar />
-          <main className="flex min-w-0 flex-1 flex-col overflow-hidden">{children}</main>
-        </div>
+        <AppShell>{children}</AppShell>
       </body>
     </html>
   );

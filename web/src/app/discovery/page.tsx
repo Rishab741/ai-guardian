@@ -49,9 +49,20 @@ export default function DiscoveryPage() {
         )}
 
         {!report ? (
-          <div className="py-10 text-center text-[12.5px] text-[var(--text-muted)]">Loading discovery report&hellip;</div>
-        ) : (
           <div className="mx-auto max-w-4xl">
+            <div className="rounded-xl border border-[var(--border-hairline)] bg-[var(--surface-raised)] p-5">
+              <div className="skeleton h-3 w-40" />
+              <div className="skeleton mt-2.5 h-5 w-80" />
+              <div className="skeleton mt-2.5 h-3 w-full max-w-xl" />
+              <div className="mt-5 grid grid-cols-2 gap-3 md:grid-cols-4">
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <StatCard key={i} label=" " loading />
+                ))}
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="fade-up mx-auto max-w-4xl">
             <div className="rounded-xl border border-[var(--border-hairline)] bg-[var(--surface-raised)] p-5">
               <div className="text-[11px] font-medium uppercase tracking-wide text-[var(--text-muted)]">
                 SovereignFabric &middot; Shadow Audit Discovery
@@ -66,12 +77,26 @@ export default function DiscoveryPage() {
               </p>
 
               <div className="mt-5 grid grid-cols-2 gap-3 md:grid-cols-4">
-                <StatCard label="PII Exposures Found" value={report.summary.total_pii_redactions.toLocaleString()} accent="critical" />
-                <StatCard label="Policy Violations Blocked" value={report.summary.blocked_requests.toLocaleString()} />
-                <StatCard label="Cache Hit Rate" value={`${(report.summary.cache_hit_rate * 100).toFixed(0)}%`} />
+                <StatCard
+                  label="PII Exposures Found"
+                  numericValue={report.summary.total_pii_redactions}
+                  format={(v) => Math.round(v).toLocaleString()}
+                  accent="critical"
+                />
+                <StatCard
+                  label="Policy Violations Blocked"
+                  numericValue={report.summary.blocked_requests}
+                  format={(v) => Math.round(v).toLocaleString()}
+                />
+                <StatCard
+                  label="Cache Hit Rate"
+                  numericValue={report.summary.cache_hit_rate * 100}
+                  format={(v) => `${v.toFixed(0)}%`}
+                />
                 <StatCard
                   label="Pilot Savings (Observed)"
-                  value={`$${report.summary.savings_usd.toFixed(2)}`}
+                  numericValue={report.summary.savings_usd}
+                  format={(v) => `$${v.toFixed(2)}`}
                   sub={`real, measured over ${report.observed_days} days — see projection below`}
                   accent="good"
                 />
