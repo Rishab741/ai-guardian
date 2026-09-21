@@ -1,0 +1,17 @@
+# Python
+api/venv/
+api/__pycache__/
+api/**/__pycache__/
+*.pyc
+api/.env
+api/*.db
+
+# Node / Next.js
+web/node_modules/
+web/.next/
+web/out/
+web/.env*.local
+
+# OS
+.DS_Store
+Thumbs.db

@@ -1,8 +1,12 @@
+# Demo mode (DEMO_MODE=true) only needs these:
 fastapi
-uvicorn
-presidio-analyzer
-presidio-anonymizer
-pinecone-client
-openai
-supabase
+uvicorn[standard]
 python-dotenv
+pydantic
+
+# Production mode (DEMO_MODE=false) additionally needs:
+# presidio-analyzer
+# presidio-anonymizer
+# pinecone-client
+# openai
+# supabase
