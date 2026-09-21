@@ -1,0 +1,8 @@
+fastapi
+uvicorn
+presidio-analyzer
+presidio-anonymizer
+pinecone-client
+openai
+supabase
+python-dotenv
