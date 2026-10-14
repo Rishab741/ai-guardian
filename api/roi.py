@@ -22,7 +22,7 @@ overridable so the number is never presented as fixed or unfalsifiable.
 """
 from datetime import datetime, timedelta
 
-import database
+import db
 
 # Widely-cited industry figure (IBM Cost of a Data Breach Report, global/AU
 # figures have run in the $4-4.5M USD range for several consecutive years).
@@ -37,14 +37,14 @@ PRESETS = {
 }
 
 
-def compute(
+async def compute(
     employees: int,
     queries_per_day: float,
     window_days: int = 14,
     breach_cost_usd: float = DEFAULT_BREACH_COST_USD,
 ) -> dict:
     since_ts = (datetime.utcnow() - timedelta(days=window_days)).isoformat()
-    summary = database.get_summary_stats(since_ts=since_ts)
+    summary = await db.get_summary_stats(since_ts=since_ts)
     total_requests = summary["total_requests"]
 
     avg_savings_per_request = (summary["savings_usd"] / total_requests) if total_requests else 0.0

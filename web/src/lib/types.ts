@@ -3,6 +3,13 @@ export type Department = {
   label: string;
 };
 
+export type Profile = {
+  id: string;
+  email: string;
+  department: string | null;
+  role: "member" | "admin";
+};
+
 export type PipelineStep = {
   step: string;
   label: string;

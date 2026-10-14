@@ -1,8 +1,8 @@
 """
 Model routing + generation for the AI Control Gateway.
 
-Production (DEMO_MODE=false) target: call the real OpenAI/Anthropic APIs,
-picking the model tier below based on the same complexity heuristic.
+Production (DEMO_MODE=false): calls the real Gemini API, picking the model
+tier below based on the same complexity heuristic used in demo mode.
 
 Demo mode: simulates routing decisions and cost/latency against realistic
 per-model pricing, and generates a grounded canned response so the chat UI
@@ -24,19 +24,21 @@ import config
 # enterprise unit economics, so this models that fixed overhead explicitly.
 CONTEXT_OVERHEAD_TOKENS = 1200
 
-# Per-1K-token pricing (USD), representative of real vendor list prices.
+# Per-1K-token pricing (USD). Approximate Gemini list prices at time of
+# writing — verify against https://ai.google.dev/pricing before relying on
+# exact cost figures; update these two blocks if Google's pricing changes.
 MODEL_TIERS = {
     "fast": {
-        "name": "gpt-4o-mini",
+        "name": config.GEMINI_FAST_MODEL,
         "label": "Fast Tier",
-        "in_cost": 0.00015,
-        "out_cost": 0.0006,
+        "in_cost": 0.0001,
+        "out_cost": 0.0004,
         "base_latency_ms": 380,
     },
     "deep": {
-        "name": "gpt-4o",
+        "name": config.GEMINI_DEEP_MODEL,
         "label": "Deep Reasoning Tier",
-        "in_cost": 0.0025,
+        "in_cost": 0.00125,
         "out_cost": 0.01,
         "base_latency_ms": 1200,
     },
@@ -117,20 +119,42 @@ def _generate_text(prompt_redacted: str) -> str:
 
 
 async def generate(prompt_redacted: str) -> ModelResponse:
+    if config.DEMO_MODE:
+        return await _generate_demo(prompt_redacted)
+    return await _generate_live(prompt_redacted)
+
+
+async def _generate_demo(prompt_redacted: str) -> ModelResponse:
     tier = choose_tier(prompt_redacted)
     spec = MODEL_TIERS[tier]
 
-    if config.DEMO_MODE:
-        latency_ms = spec["base_latency_ms"] + random.randint(-80, 220)
-        await asyncio.sleep(min(latency_ms, 900) / 1000)
-        text = _generate_text(prompt_redacted)
-    else:
-        # Production path would call the real vendor API here, keyed by
-        # config.OPENAI_API_KEY, using `spec["name"]` as the model id.
-        start = time.time()
-        text = _generate_text(prompt_redacted)
-        latency_ms = int((time.time() - start) * 1000)
+    latency_ms = spec["base_latency_ms"] + random.randint(-80, 220)
+    await asyncio.sleep(min(latency_ms, 900) / 1000)
+    text = _generate_text(prompt_redacted)
 
+    return _build_response(prompt_redacted, text, tier, latency_ms)
+
+
+async def _generate_live(prompt_redacted: str) -> ModelResponse:
+    import gemini_client
+
+    tier = choose_tier(prompt_redacted)
+    spec = MODEL_TIERS[tier]
+
+    start = time.time()
+    client = gemini_client.get_client()
+    response = await client.aio.models.generate_content(
+        model=spec["name"],
+        contents=prompt_redacted,
+    )
+    latency_ms = int((time.time() - start) * 1000)
+    text = (response.text or "").strip() or "The model returned an empty response."
+
+    return _build_response(prompt_redacted, text, tier, latency_ms)
+
+
+def _build_response(prompt_redacted: str, text: str, tier: str, latency_ms: int) -> ModelResponse:
+    spec = MODEL_TIERS[tier]
     input_tokens = estimate_input_tokens(prompt_redacted)
     output_tokens = _estimate_tokens(text)
     cost = (input_tokens / 1000) * spec["in_cost"] + (output_tokens / 1000) * spec["out_cost"]

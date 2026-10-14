@@ -5,8 +5,6 @@ python-dotenv
 pydantic
 
 # Production mode (DEMO_MODE=false) additionally needs:
-# presidio-analyzer
-# presidio-anonymizer
-# pinecone-client
-# openai
-# supabase
+asyncpg
+google-genai
+pyjwt[crypto]

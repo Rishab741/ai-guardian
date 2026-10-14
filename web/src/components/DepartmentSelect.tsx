@@ -47,10 +47,12 @@ export function DepartmentSelect({
   departments,
   value,
   onChange,
+  disabled = false,
 }: {
   departments: Department[];
   value: string;
   onChange: (id: string) => void;
+  disabled?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -74,8 +76,12 @@ export function DepartmentSelect({
   return (
     <div ref={ref} className="relative">
       <button
-        onClick={() => setOpen((v) => !v)}
-        className="flex items-center gap-2 rounded-lg border border-[var(--border-hairline)] bg-[var(--surface-1)] py-1.5 pl-2.5 pr-2 text-[12.5px] font-medium text-[var(--text-primary)] outline-none transition-colors hover:border-[var(--brand)]/40 focus-visible:border-[var(--brand)]"
+        onClick={() => !disabled && setOpen((v) => !v)}
+        disabled={disabled}
+        title={disabled ? "Your department is assigned by an administrator" : undefined}
+        className={`flex items-center gap-2 rounded-lg border border-[var(--border-hairline)] bg-[var(--surface-1)] py-1.5 pl-2.5 pr-2 text-[12.5px] font-medium text-[var(--text-primary)] outline-none transition-colors ${
+          disabled ? "cursor-not-allowed opacity-80" : "hover:border-[var(--brand)]/40 focus-visible:border-[var(--brand)]"
+        }`}
       >
         <span
           className="flex h-5 w-5 items-center justify-center rounded-md"
@@ -84,12 +90,19 @@ export function DepartmentSelect({
           {current && <DeptIcon id={current.id} color={departmentColor(current.id)} />}
         </span>
         {current?.label ?? "Select…"}
-        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" className={`transition-transform ${open ? "rotate-180" : ""}`}>
-          <path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
+        {disabled ? (
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none">
+            <rect x="5" y="10" width="10" height="7" rx="1.3" stroke="currentColor" strokeWidth="1.8" />
+            <path d="M7 10V7.5a3 3 0 0 1 6 0V10" stroke="currentColor" strokeWidth="1.8" />
+          </svg>
+        ) : (
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" className={`transition-transform ${open ? "rotate-180" : ""}`}>
+            <path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        )}
       </button>
 
-      {open && (
+      {open && !disabled && (
         <div className="pop-in absolute right-0 top-[calc(100%+6px)] z-20 w-64 overflow-hidden rounded-xl border border-[var(--border-hairline)] bg-[var(--surface-raised)] py-1.5 shadow-[0_12px_32px_-8px_rgba(0,0,0,0.18)]">
           {departments.map((d) => {
             const color = departmentColor(d.id);

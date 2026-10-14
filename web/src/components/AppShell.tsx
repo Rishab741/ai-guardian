@@ -1,16 +1,27 @@
 "use client";
 
+import { usePathname } from "next/navigation";
 import { Sidebar } from "@/components/Sidebar";
 import { CommandPalette } from "@/components/CommandPalette";
 import { ThemeProvider } from "@/components/ThemeProvider";
+import { AuthGate } from "@/components/AuthGate";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
+  const bare = pathname === "/login";
+
   return (
     <ThemeProvider>
-      <div className="flex h-screen overflow-hidden bg-[var(--surface-page)]">
-        <Sidebar />
-        <main className="flex min-w-0 flex-1 flex-col overflow-hidden">{children}</main>
-      </div>
+      <AuthGate>
+        {bare ? (
+          <div className="h-screen overflow-hidden bg-[var(--surface-page)]">{children}</div>
+        ) : (
+          <div className="flex h-screen overflow-hidden bg-[var(--surface-page)]">
+            <Sidebar />
+            <main className="flex min-w-0 flex-1 flex-col overflow-hidden">{children}</main>
+          </div>
+        )}
+      </AuthGate>
       <CommandPalette />
     </ThemeProvider>
   );

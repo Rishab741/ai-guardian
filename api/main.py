@@ -1,25 +1,31 @@
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta
 
-from fastapi import FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
+import auth
+import cache
 import config
-import database
+import db
 import model_router
 import policy
 import redaction
 import roi
 import seed_data
+from auth import AuthedUser
 from schemas import ChatRequest, ChatResponse, PipelineStep, RedactionOut
-from semantic_cache import cache as semantic_cache
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    database.init_db()
-    seed_data.seed_if_empty()
+    await db.init_db()
+    if config.DEMO_MODE:
+        # Synthetic historical data only ever populates the local demo
+        # database — a real production deployment starts empty.
+        seed_data.seed_if_empty()
     yield
+    await db.close()
 
 
 app = FastAPI(title="SovereignFabric AI Control Gateway", lifespan=lifespan)
@@ -34,8 +40,8 @@ app.add_middleware(
 
 
 @app.get("/api/health")
-def health():
-    return {"status": "ok", "demo_mode": config.DEMO_MODE, "cache_size": semantic_cache.size()}
+async def health():
+    return {"status": "ok", "demo_mode": config.DEMO_MODE, "cache_size": await cache.size()}
 
 
 @app.get("/api/departments")
@@ -43,26 +49,50 @@ def departments():
     return [{"id": k, "label": v["label"]} for k, v in policy.DEPARTMENTS.items()]
 
 
+@app.get("/api/me")
+async def me(user: AuthedUser | None = Depends(auth.optional_auth)):
+    """Demo mode: no session concept, returns null. Production mode: the
+    authenticated caller's profile, used by the frontend to lock the
+    department selector for non-admin users."""
+    if user is None:
+        return None
+    return {"id": user.id, "email": user.email, "department": user.department, "role": user.role}
+
+
 @app.post("/api/demo/reset")
-def reset_demo():
-    """Clear the in-memory semantic cache. Run this right before presenting so
+async def reset_demo():
+    """Clear the semantic cache. Run this right before presenting so
     rehearsal traffic doesn't leave stale cache hits that break the
     miss-then-hit narrative of the guided demo. Audit history is untouched."""
-    cleared = semantic_cache.size()
-    semantic_cache.clear()
+    cleared = await cache.size()
+    await cache.clear()
     return {"cache_entries_cleared": cleared}
 
 
 @app.post("/api/chat", response_model=ChatResponse)
-async def chat(req: ChatRequest):
+async def chat(req: ChatRequest, user: AuthedUser | None = Depends(auth.optional_auth)):
     pipeline: list[PipelineStep] = []
+
+    # In production mode the authenticated profile's department wins over
+    # whatever the client sent, unless the caller is an admin (used for
+    # sales/demo walkthroughs that need to preview every department) — a
+    # regular member can't just pick a different department in the request
+    # body to see data they aren't entitled to.
+    department = req.department
+    user_label = req.user_label
+    if user is not None:
+        if user.role != "admin":
+            if not user.department:
+                raise HTTPException(403, "Your account has no department assigned yet. Ask an administrator to assign one.")
+            department = user.department
+        user_label = user.email
 
     # Step 2 runs before step 1's final verdict because the policy engine
     # needs to know which data classes are present in this specific prompt.
     redaction_result = redaction.redact(req.message)
     detected_types = [r.pii_type for r in redaction_result.redactions]
 
-    decision = policy.check(req.department, detected_types)
+    decision = policy.check(department, detected_types)
     pipeline.append(
         PipelineStep(
             step="auth_policy",
@@ -85,13 +115,13 @@ async def chat(req: ChatRequest):
     )
 
     if not decision.allowed:
-        audit_id = database.insert_audit_log(
-            department=req.department,
+        audit_id = await db.insert_audit_log(
+            department=department,
             department_label=decision.department_label,
-            user_label=req.user_label,
+            user_label=user_label,
             prompt_redacted=redaction_result.redacted_text,
             response_redacted="[request blocked by policy]",
-            cache_hit=0,
+            cache_hit=False,
             model_used=None,
             model_label=None,
             tier=None,
@@ -100,7 +130,7 @@ async def chat(req: ChatRequest):
             cost_usd=0,
             cost_if_no_cache=0,
             latency_ms=0,
-            policy_allowed=0,
+            policy_allowed=False,
             policy_reason=decision.reason,
             pii_types=detected_types,
             pii_count=len(detected_types),
@@ -123,7 +153,7 @@ async def chat(req: ChatRequest):
             pipeline=pipeline,
         )
 
-    cache_result = semantic_cache.lookup(redaction_result.redacted_text)
+    cache_result = await cache.lookup(redaction_result.redacted_text)
     if cache_result:
         entry, score = cache_result
         pipeline.append(
@@ -146,7 +176,7 @@ async def chat(req: ChatRequest):
         model_used, model_label, tier = gen.model_used, gen.model_label, gen.tier
         cost_usd, latency_ms = gen.cost_usd, gen.latency_ms
         would_be_cost = gen.cost_usd
-        semantic_cache.store(redaction_result.redacted_text, gen.text, gen.model_used)
+        await cache.store(redaction_result.redacted_text, gen.text, gen.model_used)
         pipeline.append(
             PipelineStep(
                 step="routing",
@@ -156,13 +186,13 @@ async def chat(req: ChatRequest):
             )
         )
 
-    audit_id = database.insert_audit_log(
-        department=req.department,
+    audit_id = await db.insert_audit_log(
+        department=department,
         department_label=decision.department_label,
-        user_label=req.user_label,
+        user_label=user_label,
         prompt_redacted=redaction_result.redacted_text,
         response_redacted=response_text,
-        cache_hit=int(bool(cache_result)),
+        cache_hit=bool(cache_result),
         model_used=model_used,
         model_label=model_label,
         tier=tier,
@@ -171,7 +201,7 @@ async def chat(req: ChatRequest):
         cost_usd=cost_usd,
         cost_if_no_cache=would_be_cost,
         latency_ms=latency_ms,
-        policy_allowed=1,
+        policy_allowed=True,
         policy_reason=None,
         pii_types=detected_types,
         pii_count=len(detected_types),
@@ -195,30 +225,30 @@ async def chat(req: ChatRequest):
 
 
 @app.get("/api/stats/summary")
-def stats_summary():
-    return database.get_summary_stats()
+async def stats_summary():
+    return await db.get_summary_stats()
 
 
 @app.get("/api/stats/departments")
-def stats_departments():
-    return database.get_department_breakdown()
+async def stats_departments():
+    return await db.get_department_breakdown()
 
 
 @app.get("/api/stats/pii-types")
-def stats_pii_types():
-    return database.get_pii_type_breakdown()
+async def stats_pii_types():
+    return await db.get_pii_type_breakdown()
 
 
 @app.get("/api/stats/timeseries")
-def stats_timeseries(days: int = 14):
-    return database.get_daily_timeseries(days=days)
+async def stats_timeseries(days: int = 14):
+    return await db.get_daily_timeseries(days=days)
 
 
 @app.get("/api/audit-logs")
-def audit_logs(limit: int = 50, department: str | None = None):
+async def audit_logs(limit: int = 50, department: str | None = None):
     if limit > 500:
         raise HTTPException(400, "limit too large")
-    return database.get_recent_logs(limit=limit, department=department)
+    return await db.get_recent_logs(limit=limit, department=department)
 
 
 @app.get("/api/roi-presets")
@@ -227,24 +257,24 @@ def roi_presets():
 
 
 @app.get("/api/roi-projection")
-def roi_projection(
+async def roi_projection(
     employees: int = 25_000,
     queries_per_day: float = 20,
     window_days: int = 14,
     breach_cost_usd: float = roi.DEFAULT_BREACH_COST_USD,
 ):
-    return roi.compute(employees, queries_per_day, window_days, breach_cost_usd)
+    return await roi.compute(employees, queries_per_day, window_days, breach_cost_usd)
 
 
 @app.get("/api/discovery-report")
-def discovery_report(window_days: int = 14):
+async def discovery_report(window_days: int = 14):
     """Mirrors the 'Shadow Audit Wedge' pitch: a rolling recent window (the
     passive pilot), regardless of how much total history the audit log
     holds. Full-history trends live on /api/stats/* for the dashboard."""
     since_ts = (datetime.utcnow() - timedelta(days=window_days)).isoformat()
-    summary = database.get_summary_stats(since_ts=since_ts)
-    dept_breakdown = database.get_department_breakdown(since_ts=since_ts)
-    pii_breakdown = database.get_pii_type_breakdown(since_ts=since_ts)
+    summary = await db.get_summary_stats(since_ts=since_ts)
+    dept_breakdown = await db.get_department_breakdown(since_ts=since_ts)
+    pii_breakdown = await db.get_pii_type_breakdown(since_ts=since_ts)
     observed_days = window_days
 
     findings = []

@@ -1,8 +1,12 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useTheme } from "@/components/ThemeProvider";
+import { useSupabaseSession } from "@/lib/useSupabaseSession";
+import { createClient } from "@/lib/supabase/client";
+import { api } from "@/lib/api";
 
 const NAV = [
   { href: "/chat", label: "AI Chat Console", icon: ChatIcon },
@@ -12,7 +16,24 @@ const NAV = [
 
 export function Sidebar() {
   const pathname = usePathname();
+  const router = useRouter();
   const { theme, setTheme, resolvedDark } = useTheme();
+  const { session } = useSupabaseSession();
+  const [demoMode, setDemoMode] = useState(true);
+
+  useEffect(() => {
+    api
+      .health()
+      .then((h) => setDemoMode(h.demo_mode))
+      .catch(() => {});
+  }, []);
+
+  async function signOut() {
+    try {
+      await createClient().auth.signOut();
+    } catch {}
+    router.replace("/login");
+  }
 
   return (
     <aside className="flex h-full w-64 shrink-0 flex-col border-r border-[var(--border-hairline)] bg-[var(--surface-1)]">
@@ -73,13 +94,29 @@ export function Sidebar() {
         </button>
       </div>
 
+      {session && (
+        <div className="mx-3 mb-2 flex items-center justify-between gap-2 rounded-lg border border-[var(--border-hairline)] bg-[var(--surface-raised)] px-3 py-2">
+          <span className="truncate text-[11.5px] font-medium text-[var(--text-secondary)]" title={session.user.email}>
+            {session.user.email}
+          </span>
+          <button
+            onClick={signOut}
+            className="shrink-0 text-[11px] font-medium text-[var(--text-muted)] underline underline-offset-2 hover:text-[var(--text-secondary)]"
+          >
+            Sign out
+          </button>
+        </div>
+      )}
+
       <div className="mx-3 mb-3 rounded-lg border border-[var(--border-hairline)] bg-[var(--surface-raised)] px-3 py-2.5">
         <div className="flex items-center gap-1.5 text-[11px] font-medium text-[var(--text-secondary)]">
-          <span className="pulse-dot h-1.5 w-1.5 rounded-full bg-[var(--status-good)]" />
-          Demo mode &middot; local pipeline
+          <span className={`h-1.5 w-1.5 rounded-full ${demoMode ? "pulse-dot bg-[var(--status-good)]" : "bg-[var(--brand)]"}`} />
+          {demoMode ? "Demo mode · local pipeline" : "Production · live pipeline"}
         </div>
         <div className="mt-1 text-[11px] leading-snug text-[var(--text-muted)]">
-          Zero-copy proxy simulation. No external vendor calls are made.
+          {demoMode
+            ? "Zero-copy proxy simulation. No external vendor calls are made."
+            : "Real Gemini calls, Postgres audit store, pgvector semantic cache."}
         </div>
       </div>
     </aside>
