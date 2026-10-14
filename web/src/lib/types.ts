@@ -13,7 +13,7 @@ export type Profile = {
 export type PipelineStep = {
   step: string;
   label: string;
-  status: "ok" | "blocked" | "hit" | "miss";
+  status: "ok" | "blocked" | "hit" | "miss" | "skipped" | "warn";
   detail: string;
 };
 

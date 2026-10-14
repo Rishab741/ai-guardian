@@ -1,10 +1,6 @@
-# Demo mode (DEMO_MODE=true) only needs these:
-fastapi
-uvicorn[standard]
-python-dotenv
-pydantic
-
-# Production mode (DEMO_MODE=false) additionally needs:
-asyncpg
-google-genai
-pyjwt[crypto]
+fastapi>=0.115
+uvicorn[standard]>=0.30
+python-dotenv>=1.0
+pydantic>=2.7
+asyncpg>=0.30
+openai>=1.60

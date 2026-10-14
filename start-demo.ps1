@@ -24,6 +24,18 @@ function Wait-ForHealthy($url, $label, $maxTries = 60) {
 
 Write-Host "=== SovereignFabric Demo Launcher ===" -ForegroundColor Magenta
 
+# Offline fallback: .\start-demo.ps1 -Offline answers with the simulated
+# provider (no internet, no Gemini quota), everything else unchanged.
+$offline = $args -contains "-Offline"
+if ($offline) { $env:LLM_PROVIDER = "simulated"; Write-Host "Offline mode: simulated model provider." -ForegroundColor Yellow }
+
+Write-Host "Starting database (Docker)..." -ForegroundColor Cyan
+docker compose -f "$root\deploy\compose\docker-compose.dev.yml" up -d --wait
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "Database failed to start. Is Docker Desktop running?" -ForegroundColor Red
+    exit 1
+}
+
 Write-Host "Starting AI Control Gateway (FastAPI)..." -ForegroundColor Cyan
 Start-Process -FilePath "$root\api\venv\Scripts\python.exe" `
     -ArgumentList "-m", "uvicorn", "main:app", "--host", "127.0.0.1", "--port", "8000" `

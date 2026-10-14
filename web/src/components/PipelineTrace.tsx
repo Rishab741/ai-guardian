@@ -5,6 +5,8 @@ const STATUS_ICON: Record<PipelineStep["status"], { icon: string; color: string 
   hit: { icon: "⚡", color: "var(--series-1)" },
   miss: { icon: "○", color: "var(--text-muted)" },
   blocked: { icon: "✕", color: "var(--status-critical)" },
+  skipped: { icon: "–", color: "var(--text-muted)" },
+  warn: { icon: "!", color: "var(--status-warning, #d97706)" },
 };
 
 export function PipelineTrace({ steps }: { steps: PipelineStep[] }) {

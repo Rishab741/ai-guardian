@@ -1,0 +1,23 @@
+# Local development database: the same engine (Postgres + pgvector) the
+# gateway runs against in every environment. Dev-only credentials.
+#   docker compose -f deploy/compose/docker-compose.dev.yml up -d
+services:
+  postgres:
+    image: pgvector/pgvector:pg17
+    container_name: sf-postgres-dev
+    environment:
+      POSTGRES_USER: sf
+      POSTGRES_PASSWORD: sf_dev_password
+      POSTGRES_DB: sovereignfabric
+    ports:
+      - "5433:5432"
+    volumes:
+      - sf_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sf -d sovereignfabric"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+volumes:
+  sf_pgdata:
