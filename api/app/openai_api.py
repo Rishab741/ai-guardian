@@ -61,7 +61,9 @@ def openai_error(status: int, code: str, message: str, headers: dict | None = No
 
 
 class AuthFailure(Exception):
-    pass
+    def __init__(self, message: str, code: str = "invalid_api_key"):
+        super().__init__(message)
+        self.code = code
 
 
 async def require_app(authorization: str | None = Header(default=None)) -> identity.AppIdentity:
@@ -73,8 +75,14 @@ async def require_app(authorization: str | None = Header(default=None)) -> ident
     return app
 
 
-async def _caller(app: identity.AppIdentity, claimed_user: str | None, endpoint: str) -> Caller:
-    user = await identity.resolve_end_user(app.tenant_id, claimed_user, app.default_department)
+async def _caller(app: identity.AppIdentity, claimed_user: str | None, user_token: str | None, endpoint: str) -> Caller:
+    if user_token:
+        try:
+            user = await identity.verify_user_token(app.tenant_id, user_token, app.default_department)
+        except identity.InvalidUserToken as e:
+            raise AuthFailure(str(e), code="invalid_user_token") from e
+    else:
+        user = await identity.resolve_end_user(app.tenant_id, claimed_user, app.default_department)
     return Caller(
         tenant_id=app.tenant_id, source="gateway", endpoint=endpoint,
         department=user.department if user else app.default_department,
@@ -104,6 +112,7 @@ async def chat_completions(
     body: ChatCompletionRequest,
     app: identity.AppIdentity = Depends(require_app),
     x_sf_user: str | None = Header(default=None),
+    x_sf_user_token: str | None = Header(default=None),
     x_sf_cache: str | None = Header(default=None),
 ):
     if body.tools or body.functions:
@@ -116,7 +125,7 @@ async def chat_completions(
         if isinstance(m.content, list) and any(p.get("type") != "text" for p in m.content if isinstance(p, dict)):
             return openai_error(400, "unsupported_content", "Only text content parts are supported.")
 
-    caller = await _caller(app, x_sf_user or body.user, "/v1/chat/completions")
+    caller = await _caller(app, x_sf_user or body.user, x_sf_user_token, "/v1/chat/completions")
     params = ChatParams(
         temperature=body.temperature, top_p=body.top_p,
         max_tokens=body.max_completion_tokens or body.max_tokens, stop=body.stop,
@@ -195,6 +204,7 @@ async def embeddings(
     body: EmbeddingRequest,
     app: identity.AppIdentity = Depends(require_app),
     x_sf_user: str | None = Header(default=None),
+    x_sf_user_token: str | None = Header(default=None),
 ):
     """Embeddings are computed on redacted text, so vectors stored in the
     bank's own vector database can't be inverted back to identifiers."""
@@ -203,7 +213,7 @@ async def embeddings(
     inputs = [body.input] if isinstance(body.input, str) else body.input
     if not inputs or len(inputs) > 100:
         return openai_error(400, "invalid_input", "Provide between 1 and 100 inputs.")
-    caller = await _caller(app, x_sf_user or body.user, "/v1/embeddings")
+    caller = await _caller(app, x_sf_user or body.user, x_sf_user_token, "/v1/embeddings")
     active = await policy.get_active(caller.tenant_id)
     pii_types = [d.pii_type for t in inputs for d in detect(t)]
     decision = policy.evaluate(active, caller.department, pii_types, "\n".join(inputs))
@@ -213,7 +223,7 @@ async def embeddings(
     base = {
         "tenant_id": caller.tenant_id, "request_id": uuid.uuid4(), "source": "gateway", "endpoint": "/v1/embeddings",
         "app_id": caller.app_id, "app_name": caller.app_name, "end_user_id": caller.end_user_id,
-        "department": decision.department, "department_label": decision.department_label,
+        "user_verified": caller.user_verified, "department": decision.department, "department_label": decision.department_label,
         "policy_version": decision.policy_version, "prompt_redacted": "\n".join(redacted)[:8000],
         "pii_types": pii_types, "pii_count": len(pii_types), "model_requested": body.model,
     }
@@ -243,7 +253,7 @@ def install_error_handlers(app) -> None:
 
     @app.exception_handler(AuthFailure)
     async def _auth(_: Request, exc: AuthFailure):
-        return openai_error(401, "invalid_api_key", str(exc))
+        return openai_error(401, exc.code, str(exc))
 
     @app.exception_handler(RequestValidationError)
     async def _invalid(request: Request, exc: RequestValidationError):

@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { api } from "@/lib/api";
-import type { ChatResponse, Department, Profile } from "@/lib/types";
+import type { ChatResponse, Department } from "@/lib/types";
 import { AssistantBubble, UserBubble } from "@/components/ChatMessage";
 import { DepartmentSelect } from "@/components/DepartmentSelect";
 import { CHAT_SCRIPT } from "@/lib/demoScript";
@@ -15,7 +15,6 @@ type Message = { id: string; role: "user"; text: string } | { id: string; role: 
 export default function ChatPage() {
   const [departments, setDepartments] = useState<Department[]>([]);
   const [department, setDepartment] = useState("retail_banking");
-  const [profile, setProfile] = useState<Profile | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -25,22 +24,12 @@ export default function ChatPage() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  // Production mode, non-admin: department comes from the authenticated
-  // profile and can't be changed from the UI — the backend enforces this
-  // server-side regardless, but locking the picker avoids a confusing "you
-  // picked X but it actually ran as Y" moment.
-  const departmentLocked = !!profile && profile.role !== "admin";
 
   useEffect(() => {
     api
       .departments()
       .then(setDepartments)
-      .catch(() => setError("Cannot reach the AI Control Gateway. Is the FastAPI backend running on :8000?"));
-
-    api.me().then((p) => {
-      setProfile(p);
-      if (p && p.role !== "admin" && p.department) setDepartment(p.department);
-    });
+      .catch(() => setError("Cannot reach the AI Control Gateway. Check that the API is running."));
 
     const params = new URLSearchParams(window.location.search);
     const dept = params.get("department");
@@ -70,14 +59,11 @@ export default function ChatPage() {
     setMessages((m) => [...m, { id: crypto.randomUUID(), role: "user", text }]);
     setLoading(true);
     try {
-      const result = await api.chat(text, dept, "demo.user@enterprise.local");
+      const result = await api.chat(text, dept);
       setMessages((m) => [...m, { id: crypto.randomUUID(), role: "assistant", result }]);
     } catch (err) {
       const detail = err instanceof Error ? err.message : "";
-      setError(
-        detail.includes("no department assigned")
-          ? "Your account has no department assigned yet. Ask an administrator to assign one."
-          : "Request failed. Confirm the gateway is running and, in production mode, that you're signed in."
+      setError(detail ? `Request failed: ${detail}` : "Request failed. Confirm the gateway is running."
       );
     } finally {
       setLoading(false);
@@ -147,7 +133,6 @@ export default function ChatPage() {
               departments={departments}
               value={department}
               onChange={setDepartment}
-              disabled={departmentLocked}
             />
           </div>
         </div>

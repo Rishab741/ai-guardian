@@ -2,38 +2,29 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { useTheme } from "@/components/ThemeProvider";
-import { useSupabaseSession } from "@/lib/useSupabaseSession";
-import { createClient } from "@/lib/supabase/client";
+import { ROUTE_PERMISSIONS, useSession } from "@/components/AuthGate";
 import { api } from "@/lib/api";
+import type { Health } from "@/lib/types";
 
 const NAV = [
-  { href: "/chat", label: "AI Chat Console", icon: ChatIcon },
   { href: "/dashboard", label: "Executive Dashboard", icon: DashboardIcon },
   { href: "/discovery", label: "CISO Discovery Report", icon: ShieldIcon },
+  { href: "/chat", label: "Gateway Playground", icon: ChatIcon },
 ];
 
 export function Sidebar() {
   const pathname = usePathname();
-  const router = useRouter();
   const { theme, setTheme, resolvedDark } = useTheme();
-  const { session } = useSupabaseSession();
-  const [demoMode, setDemoMode] = useState(true);
+  const { me, can, signOut } = useSession();
+  const [health, setHealth] = useState<Health | null>(null);
 
   useEffect(() => {
-    api
-      .health()
-      .then((h) => setDemoMode(h.demo_mode))
-      .catch(() => {});
+    api.health().then(setHealth).catch(() => {});
   }, []);
 
-  async function signOut() {
-    try {
-      await createClient().auth.signOut();
-    } catch {}
-    router.replace("/login");
-  }
+  const live = health?.llm_provider === "gemini";
 
   return (
     <aside className="flex h-full w-64 shrink-0 flex-col border-r border-[var(--border-hairline)] bg-[var(--surface-1)]">
@@ -66,6 +57,7 @@ export function Sidebar() {
       <nav className="flex flex-1 flex-col gap-0.5 px-3 py-3">
         {NAV.map(({ href, label, icon: Icon }) => {
           const active = pathname === href || pathname?.startsWith(href + "/");
+          const locked = !can(ROUTE_PERMISSIONS[href].perm);
           return (
             <Link
               key={href}
@@ -78,7 +70,12 @@ export function Sidebar() {
             >
               {active && <span className="absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-full bg-[var(--brand)]" />}
               <Icon active={active} />
-              {label}
+              <span className={locked ? "opacity-55" : undefined}>{label}</span>
+              {locked && (
+                <span className="ml-auto text-[var(--text-muted)]" title="Not available to your role">
+                  <LockIcon />
+                </span>
+              )}
             </Link>
           );
         })}
@@ -94,29 +91,35 @@ export function Sidebar() {
         </button>
       </div>
 
-      {session && (
-        <div className="mx-3 mb-2 flex items-center justify-between gap-2 rounded-lg border border-[var(--border-hairline)] bg-[var(--surface-raised)] px-3 py-2">
-          <span className="truncate text-[11.5px] font-medium text-[var(--text-secondary)]" title={session.user.email}>
-            {session.user.email}
-          </span>
-          <button
-            onClick={signOut}
-            className="shrink-0 text-[11px] font-medium text-[var(--text-muted)] underline underline-offset-2 hover:text-[var(--text-secondary)]"
-          >
-            Sign out
-          </button>
+      {me && (
+        <div className="mx-3 mb-2 rounded-lg border border-[var(--border-hairline)] bg-[var(--surface-raised)] px-3 py-2.5">
+          <div className="truncate text-[12.5px] font-semibold text-[var(--text-primary)]" title={me.email}>
+            {me.display_name}
+          </div>
+          <div className="truncate text-[11px] text-[var(--text-muted)]">{me.title || me.email}</div>
+          <div className="mt-2 flex items-center justify-between gap-2">
+            <span className="rounded-full bg-[color-mix(in_srgb,var(--brand)_12%,transparent)] px-2 py-0.5 text-[10.5px] font-semibold text-[var(--brand)]">
+              {me.role_label}
+            </span>
+            <button
+              onClick={signOut}
+              className="text-[11px] font-medium text-[var(--text-muted)] underline underline-offset-2 hover:text-[var(--text-secondary)]"
+            >
+              {me.persona ? "Switch persona" : "Sign out"}
+            </button>
+          </div>
         </div>
       )}
 
       <div className="mx-3 mb-3 rounded-lg border border-[var(--border-hairline)] bg-[var(--surface-raised)] px-3 py-2.5">
         <div className="flex items-center gap-1.5 text-[11px] font-medium text-[var(--text-secondary)]">
-          <span className={`h-1.5 w-1.5 rounded-full ${demoMode ? "pulse-dot bg-[var(--status-good)]" : "bg-[var(--brand)]"}`} />
-          {demoMode ? "Demo mode · local pipeline" : "Production · live pipeline"}
+          <span className={`h-1.5 w-1.5 rounded-full ${live ? "pulse-dot bg-[var(--status-good)]" : "bg-[var(--status-warning)]"}`} />
+          {health ? (live ? "Live · Gemini models" : "Offline · simulated models") : "Connecting…"}
         </div>
         <div className="mt-1 text-[11px] leading-snug text-[var(--text-muted)]">
-          {demoMode
-            ? "Zero-copy proxy simulation. No external vendor calls are made."
-            : "Real Gemini calls, Postgres audit store, pgvector semantic cache."}
+          {health?.demo_mode
+            ? "Demo tenant with synthetic data. Every request is redacted, policy-checked and audited."
+            : "Production tenant. Every request is redacted, policy-checked and audited."}
         </div>
       </div>
     </aside>
@@ -167,6 +170,15 @@ function ShieldIcon({ active }: { active: boolean }) {
         strokeLinejoin="round"
       />
       <path d="M9 12l2 2 4-4.2" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function LockIcon() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
+      <rect x="5" y="10.5" width="14" height="10" rx="2" stroke="currentColor" strokeWidth="2" />
+      <path d="M8 10.5V8a4 4 0 0 1 8 0v2.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
     </svg>
   );
 }

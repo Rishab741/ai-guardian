@@ -3,17 +3,21 @@ Who is calling the gateway.
 
 Apps authenticate with virtual API keys (`sf-live-…`); only a SHA-256 hash is
 stored. End users are identified by what the app forwards: the OpenAI `user`
-field or an `X-SF-User` header. These are *unverified* claims and are
-recorded as such; verified end-user identity (a signed JWT from the bank's
-identity provider) arrives in Phase 2.
+field or an `X-SF-User` header, which are *unverified* claims and recorded
+as such, or a signed token from the bank's identity provider in
+`X-SF-User-Token`, which is verified and wins over any claim.
 """
+import asyncio
 import hashlib
 import secrets
 import time
 import uuid
 from dataclasses import dataclass
 
-from . import db
+import jwt
+from jwt import PyJWKClient
+
+from . import config, db
 
 KEY_PREFIX = "sf-live-"
 
@@ -112,3 +116,62 @@ async def resolve_end_user(tenant_id: str, claimed: str | None, fallback_departm
                 fallback_department,
             )
     return EndUser(row["id"], row["display_name"], row["department"], verified=False)
+
+
+class InvalidUserToken(Exception):
+    pass
+
+
+_idp_jwks: PyJWKClient | None = None
+
+
+async def verify_user_token(tenant_id: str, token: str, fallback_department: str) -> EndUser:
+    """Verify an end-user token from the bank's IdP (END_USER_JWKS_URL), or in
+    demo mode one signed by the demo IdP. A `department` claim, when present,
+    is authoritative and updates the user's record."""
+    from .console_auth import DEMO_IDP_ISSUER, demo_secret
+
+    global _idp_jwks
+    try:
+        if config.END_USER_JWKS_URL:
+            if _idp_jwks is None:
+                _idp_jwks = PyJWKClient(config.END_USER_JWKS_URL, cache_keys=True, lifespan=3600)
+            key = await asyncio.to_thread(_idp_jwks.get_signing_key_from_jwt, token)
+            claims = jwt.decode(
+                token, key.key, algorithms=["RS256", "ES256"],
+                audience=config.END_USER_AUDIENCE or None, issuer=config.END_USER_ISSUER or None,
+                options={"verify_aud": bool(config.END_USER_AUDIENCE)},
+            )
+        elif config.DEMO_MODE:
+            claims = jwt.decode(token, demo_secret(), algorithms=["HS256"], issuer=DEMO_IDP_ISSUER)
+        else:
+            raise InvalidUserToken("No identity provider is configured for verified user tokens.")
+    except jwt.PyJWTError as e:
+        raise InvalidUserToken(f"User token rejected: {e}") from e
+
+    subject = (claims.get("email") or claims.get("preferred_username") or claims.get("sub") or "").lower()
+    if not subject:
+        raise InvalidUserToken("User token has no subject.")
+    department = claims.get("department")
+    name = claims.get("name") or subject
+    pool = await db.get_pool()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            """
+            update end_users set department = coalesce($3, department)
+            where tenant_id = $1 and (id = $2 or external_ref = $2)
+            returning id, display_name, department
+            """,
+            tenant_id, subject, department,
+        )
+        if row is None:
+            row = await conn.fetchrow(
+                """
+                insert into end_users (tenant_id, id, external_ref, display_name, department)
+                values ($1, $2, $2, $3, $4)
+                on conflict (tenant_id, id) do update set department = excluded.department
+                returning id, display_name, department
+                """,
+                tenant_id, subject, name, department or fallback_department,
+            )
+    return EndUser(row["id"], row["display_name"], row["department"], verified=True)

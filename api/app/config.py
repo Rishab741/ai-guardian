@@ -74,6 +74,24 @@ DEFAULT_TENANT = os.getenv("DEFAULT_TENANT", "harbour")
 # generates one and prints it once.
 DEMO_APP_KEY = os.getenv("SF_DEMO_APP_KEY", "")
 
+# ── Console authentication ──
+# Demo personas (DEMO_MODE): tokens signed with this secret. Required when
+# more than one gateway instance runs; generated per process otherwise.
+DEMO_TOKEN_SECRET = os.getenv("DEMO_TOKEN_SECRET", "")
+# Optional shared code the presenter types on the login screen, so a public
+# demo URL isn't open to anyone who finds it.
+DEMO_ACCESS_CODE = os.getenv("DEMO_ACCESS_CODE", "")
+# Firebase Authentication (free Spark plan). Leave empty to use personas only.
+FIREBASE_PROJECT_ID = os.getenv("FIREBASE_PROJECT_ID", "")
+FIREBASE_WEB_API_KEY = os.getenv("FIREBASE_WEB_API_KEY", "")  # public by design
+CONSOLE_BOOTSTRAP_ADMINS = [e.lower() for e in _list("CONSOLE_BOOTSTRAP_ADMINS", "")]
+
+# Verified end-user identity: apps forward the bank IdP's token in
+# X-SF-User-Token. Configure the IdP's JWKS (e.g. Entra ID) to enable.
+END_USER_JWKS_URL = os.getenv("END_USER_JWKS_URL", "")
+END_USER_ISSUER = os.getenv("END_USER_ISSUER", "")
+END_USER_AUDIENCE = os.getenv("END_USER_AUDIENCE", "")
+
 CORS_ORIGINS = _list("CORS_ORIGINS", "http://localhost:3000")
 MAX_BODY_BYTES = _int("MAX_BODY_BYTES", 1_000_000)
 MAX_MESSAGES = _int("MAX_MESSAGES", 128)

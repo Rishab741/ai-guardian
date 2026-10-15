@@ -4,3 +4,4 @@ python-dotenv>=1.0
 pydantic>=2.7
 asyncpg>=0.30
 openai>=1.60
+pyjwt[crypto]>=2.9

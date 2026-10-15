@@ -1,5 +1,15 @@
-import { redirect } from "next/navigation";
+"use client";
 
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { landingPath, useSession } from "@/components/AuthGate";
+
+/** Each role lands on its own workspace. */
 export default function Home() {
-  redirect("/chat");
+  const { me } = useSession();
+  const router = useRouter();
+  useEffect(() => {
+    if (me) router.replace(landingPath(me));
+  }, [me, router]);
+  return null;
 }

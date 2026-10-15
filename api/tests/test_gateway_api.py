@@ -5,7 +5,7 @@ import pytest
 from app import gateway, identity, providers
 from app.providers import ProviderError
 
-from .conftest import fetchrow
+from .conftest import fetchrow, token_for
 
 TFN_A = "123 456 782"
 TFN_B = "876 543 210"  # also passes the mod-11 check
@@ -117,4 +117,5 @@ async def test_zz_no_raw_pii_persisted_and_chain_verifies(http):
             r"123 456 782|876 543 210|4111 1111|2123 45670|jane@bank|Tom Brennan",
         )
         assert row["n"] == 0, table
-    assert (await http.get("/api/audit/verify")).json()["ok"] is True
+    verify = await http.get("/api/audit/verify", headers={"Authorization": await token_for(http, "ciso")})
+    assert verify.json()["ok"] is True

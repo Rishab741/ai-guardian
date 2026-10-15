@@ -4,7 +4,7 @@ import { usePathname } from "next/navigation";
 import { Sidebar } from "@/components/Sidebar";
 import { CommandPalette } from "@/components/CommandPalette";
 import { ThemeProvider } from "@/components/ThemeProvider";
-import { AuthGate } from "@/components/AuthGate";
+import { AuthGate, PageGuard } from "@/components/AuthGate";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -18,7 +18,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         ) : (
           <div className="flex h-screen overflow-hidden bg-[var(--surface-page)]">
             <Sidebar />
-            <main className="flex min-w-0 flex-1 flex-col overflow-hidden">{children}</main>
+            <main className="flex min-w-0 flex-1 flex-col overflow-hidden">
+              <PageGuard>{children}</PageGuard>
+            </main>
           </div>
         )}
       </AuthGate>
