@@ -5,7 +5,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from . import config, console_api, console_auth, db, openai_api, seed
+from . import config, console_api, console_auth, db, feed, governance_api, openai_api, seed
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 
@@ -19,6 +19,7 @@ async def lifespan(app: FastAPI):
         await console_auth.seed_personas()
         await seed.seed_demo()
     yield
+    await feed.close()
     await db.close()
 
 
@@ -51,3 +52,4 @@ async def healthz():
 openai_api.install_error_handlers(app)
 app.include_router(openai_api.router)
 app.include_router(console_api.router)
+app.include_router(governance_api.router)

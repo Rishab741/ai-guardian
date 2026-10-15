@@ -146,3 +146,70 @@ async def risky_users(tenant_id: str, since: datetime | None, limit: int = 10) -
         )
     return [{**dict(r), "last_seen": r["last_seen"].isoformat(),
              "risk_score": r["blocked"] * 5 + r["pii_exposures"] + r["injection_flags"] * 10} for r in rows]
+
+
+async def apps(tenant_id: str, since: datetime | None) -> list[dict]:
+    pool = await db.get_pool()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(
+            """
+            select coalesce(e.app_name, 'Console Playground') as app_name, count(*) as requests,
+                   count(distinct e.end_user_id) as users,
+                   count(*) filter (where e.decision = 'blocked') as blocked,
+                   coalesce(sum(e.pii_count), 0) as pii_exposures,
+                   count(*) filter (where e.cache_hit) as cache_hits,
+                   max(e.ts) as last_seen
+            from audit_events e
+            where e.tenant_id = $1 and ($2::timestamptz is null or e.ts >= $2)
+            group by 1 order by requests desc
+            """,
+            tenant_id, since,
+        )
+    return [{**dict(r), "last_seen": r["last_seen"].isoformat()} for r in rows]
+
+
+async def user_profile(tenant_id: str, user_id: str, days: int) -> dict | None:
+    pool = await db.get_pool()
+    async with pool.acquire() as conn:
+        person = await conn.fetchrow(
+            "select id, display_name, title, department from end_users where tenant_id = $1 and id = $2", tenant_id, user_id
+        )
+        if person is None:
+            return None
+        totals = await conn.fetchrow(
+            """
+            select count(*) as requests, count(*) filter (where decision = 'blocked') as blocked,
+                   coalesce(sum(pii_count), 0) as pii_exposures,
+                   count(*) filter (where 'prompt_injection' = any(flags)) as injection_flags,
+                   count(distinct app_name) as apps
+            from audit_events where tenant_id = $1 and end_user_id = $2 and ts >= now() - make_interval(days => $3)
+            """,
+            tenant_id, user_id, days,
+        )
+        daily = await conn.fetch(
+            """
+            select to_char(date_trunc('day', ts at time zone 'Australia/Sydney'), 'YYYY-MM-DD') as day,
+                   count(*) as requests, count(*) filter (where decision = 'blocked') as blocked,
+                   coalesce(sum(pii_count), 0) as pii
+            from audit_events where tenant_id = $1 and end_user_id = $2 and ts >= now() - make_interval(days => $3)
+            group by 1 order by 1
+            """,
+            tenant_id, user_id, days,
+        )
+        classes = await conn.fetch(
+            """
+            select t as pii_type, count(*) as count from audit_events, unnest(pii_types) t
+            where tenant_id = $1 and end_user_id = $2 and ts >= now() - make_interval(days => $3)
+            group by t order by count desc
+            """,
+            tenant_id, user_id, days,
+        )
+    dept_label = await _department_label(tenant_id, person["department"])
+    return {"user": {**dict(person), "department_label": dept_label}, "totals": dict(totals),
+            "daily": [dict(r) for r in daily], "data_classes": [dict(r) for r in classes]}
+
+
+async def _department_label(tenant_id: str, dept: str) -> str:
+    pool = await db.get_pool()
+    async with pool.acquire() as conn:
+        return await conn.fetchval("select label from departments where tenant_id = $1 and id = $2", tenant_id, dept) or dept

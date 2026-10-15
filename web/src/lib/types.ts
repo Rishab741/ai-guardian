@@ -185,3 +185,115 @@ export type DiscoveryReport = {
   observed_days: number;
   projected_annual_savings_usd: number;
 };
+
+export type FeedEvent = {
+  id: number;
+  ts: string;
+  source: "gateway" | "console" | "simulator" | "seed";
+  app_name: string | null;
+  end_user_id: string | null;
+  user_label: string;
+  department: string;
+  department_label: string;
+  decision: "allowed" | "blocked" | "error";
+  pii_types: string[];
+  cache_hit: boolean;
+  tier: string | null;
+  flags: string[];
+};
+
+export type AppStat = {
+  app_name: string;
+  requests: number;
+  users: number;
+  blocked: number;
+  pii_exposures: number;
+  cache_hits: number;
+  last_seen: string;
+};
+
+export type PersonProfile = {
+  user: { id: string; display_name: string; title: string; department: string; department_label: string };
+  totals: { requests: number; blocked: number; pii_exposures: number; injection_flags: number; apps: number };
+  daily: { day: string; requests: number; blocked: number; pii: number }[];
+  data_classes: { pii_type: string; count: number }[];
+  events: AuditLog[];
+  identity_visible: boolean;
+};
+
+export type DataAction = "allow" | "redact" | "block";
+export type DeptRules = {
+  data_classes: Record<string, DataAction>;
+  rehydrate?: Record<string, boolean>;
+  max_tier?: "fast" | "balanced" | "deep";
+  rate_limit_per_user_per_min?: number;
+};
+export type PolicyDoc = {
+  departments: Record<string, DeptRules>;
+  global: { deny_terms: string[]; prompt_injection: "off" | "flag" | "block"; rehydrate: Record<string, boolean> };
+};
+export type PolicyVersion = {
+  version: number;
+  status: "draft" | "pending_approval" | "active" | "superseded" | "rejected";
+  note: string;
+  decision_note: string | null;
+  created_by: string;
+  created_at: string;
+  approved_by: string | null;
+  approved_at: string | null;
+  doc: PolicyDoc;
+};
+export type PolicyPack = { label: string; summary: string; doc: PolicyDoc };
+export type ImpactResult = {
+  window_days: number;
+  replayed: number;
+  newly_blocked: number;
+  newly_allowed: number;
+  blocked_before: number;
+  blocked_after: number;
+  by_department: { department: string; department_label: string; requests: number; newly_blocked: number; newly_allowed: number }[];
+  note: string;
+};
+type SimOutcome = { allowed: boolean; reason: string | null; flags: string[]; sent_to_model: string | null; max_tier: string };
+export type PromptSimulation = { data_classes: string[]; active: SimOutcome; proposed: SimOutcome };
+
+export type TenantSettings = {
+  name: string;
+  privacy_mode?: "named" | "pseudonymous";
+  employee_notice?: string;
+  sso?: { provider: string; domain: string; status: string };
+  onboarding?: { completed: string[] };
+};
+
+export type AppInfo = {
+  id: string;
+  name: string;
+  description: string;
+  default_department: string;
+  disabled: boolean;
+  created_at: string;
+  key_prefix: string | null;
+  last_used_at: string | null;
+};
+
+export type EvidencePack = {
+  tenant: string;
+  generated_at: string;
+  period: { from: string; to: string; days: number };
+  summary: SummaryStats & { identity_coverage: number; active_users: number };
+  cps234: {
+    classification: { data_class: string; label: string; occurrences: number }[];
+    access_control: { display_name: string; title: string; role: string; last_login_at: string | null }[];
+    identity_coverage: { verified_requests: number; total_requests: number };
+    detection: { blocked_requests: number; prompt_injection_flags: number; riskiest_users: RiskyUser[] };
+    audit_integrity: { ok: boolean; checked: number; first_bad_id: number | null };
+    change_management: {
+      policy_versions: Omit<PolicyVersion, "doc" | "decision_note">[];
+      console_actions: { ts: string; actor: string; actor_role: string; action: string; target: string }[];
+    };
+  };
+  cps230: {
+    service_providers: { provider: string; model_used: string; calls: number; errors: number; share: number; p50_ms: number; p95_ms: number }[];
+    resilience: { requests_rerouted: number; served_by_offline_fallback: number; cache_hit_rate: number };
+  };
+};

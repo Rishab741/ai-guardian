@@ -2,11 +2,13 @@
 
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
-import type { AuditLog, DailyPoint, DepartmentBreakdown, PiiTypeBreakdown, SummaryStats } from "@/lib/types";
+import type { DailyPoint, DepartmentBreakdown, PiiTypeBreakdown, PolicyVersion, SummaryStats } from "@/lib/types";
 import { StatCard } from "@/components/StatCard";
 import { BarList } from "@/components/charts/BarList";
 import { TrendChart } from "@/components/charts/TrendChart";
-import { AuditTable } from "@/components/AuditTable";
+import Link from "next/link";
+import { LiveFeed } from "@/components/LiveFeed";
+import { useSession } from "@/components/AuthGate";
 import { GuidedBanner } from "@/components/GuidedBanner";
 import { departmentColor, piiTypeColor } from "@/lib/palette";
 import { DASHBOARD_TALKING_POINT } from "@/lib/demoScript";
@@ -19,7 +21,8 @@ export default function DashboardPage() {
   const [depts, setDepts] = useState<DepartmentBreakdown[]>([]);
   const [piiTypes, setPiiTypes] = useState<PiiTypeBreakdown[]>([]);
   const [timeseries, setTimeseries] = useState<DailyPoint[]>([]);
-  const [logs, setLogs] = useState<AuditLog[]>([]);
+  const [pending, setPending] = useState<PolicyVersion | null>(null);
+  const { can } = useSession();
   const [roi, setRoi] = useState<RoiProjection | null>(null);
   const [error, setError] = useState(false);
   const [showGuided, setShowGuided] = useState(false);
@@ -31,20 +34,20 @@ export default function DashboardPage() {
 
   async function load() {
     try {
-      const [s, d, p, t, l, r] = await Promise.all([
+      const [s, d, p, t, r, versions] = await Promise.all([
         api.summary(),
         api.departmentBreakdown(),
         api.piiTypeBreakdown(),
         api.timeseries(rangeDays),
-        api.auditLogs(12),
         api.roiProjection(DEFAULT_ROI_EMPLOYEES, DEFAULT_ROI_QUERIES_PER_DAY),
+        api.policies(),
       ]);
       setSummary(s);
       setDepts(d);
       setPiiTypes(p);
       setTimeseries(t);
-      setLogs(l);
       setRoi(r);
+      setPending(versions.find((v) => v.status === "pending_approval") ?? null);
       setError(false);
     } catch {
       setError(true);
@@ -68,8 +71,8 @@ export default function DashboardPage() {
   return (
     <div className="flex h-full flex-col overflow-y-auto">
       <header className="shrink-0 border-b border-[var(--border-hairline)] bg-[var(--surface-raised)] px-6 py-3.5">
-        <h1 className="text-sm font-semibold text-[var(--text-primary)]">Executive Dashboard</h1>
-        <p className="text-[12px] text-[var(--text-muted)]">Live view of intercepted AI requests and FinOps savings across the pilot.</p>
+        <h1 className="text-sm font-semibold text-[var(--text-primary)]">Command Centre</h1>
+        <p className="text-[12px] text-[var(--text-muted)]">Every AI request across the organisation: what was protected, what was stopped, and what it cost.</p>
       </header>
 
       {showGuided && <GuidedBanner text={DASHBOARD_TALKING_POINT} onDismiss={() => setShowGuided(false)} />}
@@ -77,8 +80,21 @@ export default function DashboardPage() {
       <div className="flex-1 px-6 py-5">
         {error && (
           <div className="mb-4 rounded-lg border border-[var(--status-critical)]/30 bg-[color-mix(in_srgb,var(--status-critical)_10%,transparent)] px-3.5 py-2.5 text-[12.5px] text-[var(--status-critical)]">
-            Cannot reach the AI Control Gateway. Is the FastAPI backend running on :8000?
+            Cannot reach the AI Control Gateway. Check that the API is running.
           </div>
+        )}
+
+        {pending && (
+          <Link
+            href="/policies"
+            className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-[color-mix(in_srgb,var(--status-warning)_55%,transparent)] bg-[color-mix(in_srgb,var(--status-warning)_12%,transparent)] px-3.5 py-2.5 text-[12.5px] text-[var(--text-primary)]"
+          >
+            <span>
+              <b>Policy v{pending.version} is waiting for approval</b>
+              {pending.note ? ` · “${pending.note}”` : ""} · proposed by {pending.created_by}
+            </span>
+            <span className="font-medium text-[var(--brand)]">{can("approve_policy") ? "Review and decide →" : "View →"}</span>
+          </Link>
         )}
 
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
@@ -185,12 +201,8 @@ export default function DashboardPage() {
             )}
           </div>
 
-          <div className="rounded-xl border border-[var(--border-hairline)] bg-[var(--surface-raised)] p-4 xl:col-span-2">
-            <div className="mb-3 flex items-baseline justify-between">
-              <h2 className="text-[13px] font-semibold text-[var(--text-primary)]">Recent audit activity</h2>
-              <span className="text-[11px] text-[var(--text-muted)]">auto-refreshing</span>
-            </div>
-            <AuditTable logs={logs} />
+          <div className="xl:col-span-2">
+            <LiveFeed />
           </div>
         </div>
       </div>

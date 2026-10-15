@@ -28,7 +28,7 @@ test("developer is kept out of executive views", async ({ page }) => {
   await signInAs(page, "Jess Park");
   await expect(page).toHaveURL(/\/chat/);
   await page.goto("/dashboard");
-  await expect(page.getByRole("heading", { name: "Executive Dashboard is restricted" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Command Centre is restricted" })).toBeVisible();
   if (SHOTS) await page.screenshot({ path: `${SHOTS}/developer-restricted.png` });
 });
 

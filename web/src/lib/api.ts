@@ -1,5 +1,15 @@
 import type {
+  AppInfo,
+  AppStat,
   AuditLog,
+  EvidencePack,
+  ImpactResult,
+  PersonProfile,
+  PolicyDoc,
+  PolicyPack,
+  PolicyVersion,
+  PromptSimulation,
+  TenantSettings,
   AuthConfig,
   ChatResponse,
   Department,
@@ -16,7 +26,7 @@ import type {
 } from "./types";
 import { bearer, signOut } from "./auth";
 
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+export const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
 export class ApiError extends Error {
   constructor(public status: number, message: string) {
@@ -76,6 +86,40 @@ export const api = {
   verifyAudit: () => request<{ ok: boolean; checked: number; first_bad_id: number | null }>("/api/audit/verify"),
   discoveryReport: () => request<DiscoveryReport>("/api/discovery-report"),
   resetDemo: () => request<{ cache_entries_cleared: number }>("/api/demo/reset", { method: "POST" }),
+  apps: (windowDays = 30) => request<AppStat[]>(`/api/stats/apps?window_days=${windowDays}`),
+  person: (ref: string, days = 30) => request<PersonProfile>(`/api/people/${encodeURIComponent(ref)}?days=${days}`),
+  policies: () => request<PolicyVersion[]>("/api/policies"),
+  policyPacks: () => request<Record<string, PolicyPack>>("/api/policies/packs"),
+  proposePolicy: (doc: PolicyDoc, note: string) =>
+    request<{ version: number }>("/api/policies", { method: "POST", body: JSON.stringify({ doc, note }) }),
+  decidePolicy: (version: number, approve: boolean, note: string) =>
+    request<{ status: string }>(`/api/policies/${version}/${approve ? "approve" : "reject"}`, {
+      method: "POST",
+      body: JSON.stringify({ note }),
+    }),
+  simulatePrompt: (doc: PolicyDoc, department: string, prompt: string) =>
+    request<PromptSimulation>("/api/policies/simulate/prompt", {
+      method: "POST",
+      body: JSON.stringify({ doc, department, prompt }),
+    }),
+  simulateImpact: (doc: PolicyDoc, days = 7) =>
+    request<ImpactResult>("/api/policies/simulate/impact", { method: "POST", body: JSON.stringify({ doc, days }) }),
+  settings: () => request<TenantSettings>("/api/settings"),
+  saveSettings: (patch: Partial<TenantSettings>) =>
+    request<TenantSettings>("/api/settings", { method: "PUT", body: JSON.stringify(patch) }),
+  addDepartment: (id: string, label: string) =>
+    request<{ id: string; label: string; note: string }>("/api/departments", {
+      method: "POST",
+      body: JSON.stringify({ id, label }),
+    }),
+  listApps: () => request<AppInfo[]>("/api/apps"),
+  createApp: (name: string, defaultDepartment: string, description = "") =>
+    request<{ id: string; name: string; api_key: string; note: string }>("/api/apps", {
+      method: "POST",
+      body: JSON.stringify({ name, default_department: defaultDepartment, description }),
+    }),
+  rotateKey: (appId: string) => request<{ api_key: string }>(`/api/apps/${appId}/rotate-key`, { method: "POST" }),
+  evidence: (days = 30) => request<EvidencePack>(`/api/reports/evidence?days=${days}`),
   roiPresets: () => request<Record<string, RoiPreset>>("/api/roi-presets"),
   roiProjection: (employees: number, queriesPerDay: number, breachCostUsd?: number) =>
     request<RoiProjection>(

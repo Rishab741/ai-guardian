@@ -9,9 +9,13 @@ import { api } from "@/lib/api";
 import type { Health } from "@/lib/types";
 
 const NAV = [
-  { href: "/dashboard", label: "Executive Dashboard", icon: DashboardIcon },
-  { href: "/discovery", label: "CISO Discovery Report", icon: ShieldIcon },
+  { href: "/dashboard", label: "Command Centre", icon: DashboardIcon },
+  { href: "/risk", label: "People & Apps", icon: PeopleIcon },
+  { href: "/policies", label: "Policies", icon: PolicyIcon },
+  { href: "/reports", label: "Evidence Pack", icon: ReportIcon },
+  { href: "/discovery", label: "Discovery Report", icon: ShieldIcon },
   { href: "/chat", label: "Gateway Playground", icon: ChatIcon },
+  { href: "/setup", label: "Setup", icon: SetupIcon },
 ];
 
 export function Sidebar() {
@@ -27,7 +31,7 @@ export function Sidebar() {
   const live = health?.llm_provider === "gemini";
 
   return (
-    <aside className="flex h-full w-64 shrink-0 flex-col border-r border-[var(--border-hairline)] bg-[var(--surface-1)]">
+    <aside className="flex h-full w-64 shrink-0 flex-col print:hidden border-r border-[var(--border-hairline)] bg-[var(--surface-1)]">
       <div className="flex items-center gap-2.5 px-5 py-5">
         <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--brand)] text-[var(--brand-ink)]">
           <FabricIcon />
@@ -170,6 +174,43 @@ function ShieldIcon({ active }: { active: boolean }) {
         strokeLinejoin="round"
       />
       <path d="M9 12l2 2 4-4.2" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function PeopleIcon({ active }: { active: boolean }) {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" opacity={active ? 1 : 0.85}>
+      <circle cx="9" cy="8.5" r="3.2" stroke="currentColor" strokeWidth="1.7" />
+      <path d="M3.5 19c.6-3 2.8-4.8 5.5-4.8s4.9 1.8 5.5 4.8" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+      <path d="M16 6.2a3 3 0 0 1 0 5.6M17.5 14.6c1.6.6 2.7 2.1 3 4.2" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function PolicyIcon({ active }: { active: boolean }) {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" opacity={active ? 1 : 0.85}>
+      <path d="M6 3.5h9l3.5 3.5v13.5H6z" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round" />
+      <path d="M9 11h6M9 14.5h6M9 18h3.5" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function ReportIcon({ active }: { active: boolean }) {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" opacity={active ? 1 : 0.85}>
+      <rect x="4.5" y="3.5" width="15" height="17" rx="1.8" stroke="currentColor" strokeWidth="1.7" />
+      <path d="M8.5 16v-3M12 16V9.5M15.5 16v-5" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function SetupIcon({ active }: { active: boolean }) {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" opacity={active ? 1 : 0.85}>
+      <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="1.7" />
+      <path d="M12 3v2.5M12 18.5V21M3 12h2.5M18.5 12H21M5.6 5.6l1.8 1.8M16.6 16.6l1.8 1.8M5.6 18.4l1.8-1.8M16.6 7.4l1.8-1.8" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
     </svg>
   );
 }

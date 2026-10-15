@@ -25,6 +25,8 @@ cd ..\web; npm install; copy .env.example .env.local
 .\start-demo.ps1            # live Gemini
 .\start-demo.ps1 -Offline   # no internet needed: simulated model answers, everything else identical
 .\stop-demo.ps1
+.\reset-demo-data.ps1      # before a big demo: fresh history, original policy, no rehearsal leftovers
+.eset-demo-data.ps1      # before a big demo: fresh history, original policy, no rehearsal leftovers
 ```
 
 Open http://localhost:3000, click **Continue with Microsoft Entra ID** and pick a persona.

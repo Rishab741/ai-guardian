@@ -38,7 +38,8 @@ PERMISSIONS: dict[str, set[str]] = {
              "export_reports", "verify_audit", "use_playground"},
     "compliance": {"view_dashboards", "view_risk", "view_audit_detail", "view_identities", "export_reports",
                    "verify_audit"},
-    "tenant_admin": {"view_dashboards", "manage_apps", "manage_settings", "use_playground"},
+    # IT admins propose baseline policy packs during onboarding; an executive approves.
+    "tenant_admin": {"view_dashboards", "manage_apps", "manage_settings", "use_playground", "draft_policy"},
     "developer": {"use_playground"},
 }
 ROLE_LABELS = {

@@ -11,9 +11,13 @@ import type { Me } from "@/lib/types";
  * any signed-in user. The gateway enforces the same rules on every API call;
  * this only decides what to render. */
 export const ROUTE_PERMISSIONS: Record<string, { perm: string; label: string; audience: string }> = {
-  "/dashboard": { perm: "view_dashboards", label: "Executive Dashboard", audience: "executives, CISO, compliance and IT admins" },
-  "/discovery": { perm: "view_dashboards", label: "CISO Discovery Report", audience: "executives, CISO, compliance and IT admins" },
+  "/dashboard": { perm: "view_dashboards", label: "Command Centre", audience: "executives, CISO, compliance and IT admins" },
+  "/risk": { perm: "view_risk", label: "People & Apps", audience: "executives, the CISO and compliance" },
+  "/policies": { perm: "view_dashboards", label: "Policies", audience: "executives, CISO, compliance and IT admins" },
+  "/reports": { perm: "export_reports", label: "Evidence Pack", audience: "the CISO and compliance" },
+  "/discovery": { perm: "view_dashboards", label: "Discovery Report", audience: "executives, CISO, compliance and IT admins" },
   "/chat": { perm: "use_playground", label: "Gateway Playground", audience: "the CISO, IT admins and developers" },
+  "/setup": { perm: "manage_settings", label: "Setup", audience: "IT admins" },
 };
 
 type SessionCtx = { me: Me | null; can: (perm: string) => boolean; signOut: () => Promise<void> };
