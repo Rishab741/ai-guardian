@@ -147,6 +147,8 @@ flowchart TB
   IDP[Identity Platform<br/>console login, OIDC/SAML SSO] -.-> FH
 ```
 
+> **Update 2026-10-15:** Google Cloud billing couldn't be attached, so the hosted demo runs on no-card free plans instead: Render (gateway container), Neon (Postgres + pgvector), Vercel (console), optional Firebase Spark (Google sign-in). Same image and schema, so moving to the GCP layout below needs configuration only. See [DEPLOYMENT.md](../DEPLOYMENT.md).
+
 **Why these choices**
 
 | Need | Choice | Why | Rejected |

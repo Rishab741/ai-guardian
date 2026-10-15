@@ -2,6 +2,7 @@
 import json
 import logging
 from pathlib import Path
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 import asyncpg
 
@@ -18,11 +19,23 @@ async def _init_connection(conn: asyncpg.Connection) -> None:
     await conn.set_type_codec("jsonb", encoder=json.dumps, decoder=json.loads, schema="pg_catalog")
 
 
+# libpq options asyncpg doesn't understand. Left in, asyncpg would send them
+# to the server as settings and the connection would fail (Neon's connection
+# strings include channel_binding=require, for example).
+_LIBPQ_ONLY = {"channel_binding", "gssencmode", "options"}
+
+
+def _asyncpg_dsn(url: str) -> str:
+    parts = urlsplit(url)
+    query = [(k, v) for k, v in parse_qsl(parts.query) if k not in _LIBPQ_ONLY]
+    return urlunsplit(parts._replace(query=urlencode(query)))
+
+
 async def get_pool() -> asyncpg.Pool:
     global _pool
     if _pool is None:
         _pool = await asyncpg.create_pool(
-            config.DATABASE_URL,
+            _asyncpg_dsn(config.DATABASE_URL),
             min_size=1,
             max_size=config.DB_POOL_MAX,
             init=_init_connection,

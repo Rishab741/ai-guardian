@@ -103,3 +103,9 @@ def validate() -> None:
         raise RuntimeError(f"LLM_PROVIDER must be 'gemini' or 'simulated', got {LLM_PROVIDER!r}")
     if LLM_PROVIDER == "gemini" and not GEMINI_API_KEY:
         raise RuntimeError("LLM_PROVIDER=gemini but GEMINI_API_KEY is not set")
+    if ENVIRONMENT != "local" and DEMO_MODE and len(DEMO_TOKEN_SECRET) < 32:
+        # Hosted instances restart and scale; a per-process secret would sign
+        # everyone out on every restart.
+        raise RuntimeError("Hosted demo needs DEMO_TOKEN_SECRET (32+ random characters)")
+    if ENVIRONMENT != "local" and not DEMO_MODE and not FIREBASE_PROJECT_ID:
+        raise RuntimeError("DEMO_MODE=false needs FIREBASE_PROJECT_ID, otherwise nobody can sign in")

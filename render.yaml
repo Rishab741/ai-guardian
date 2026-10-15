@@ -1,0 +1,34 @@
+# Render Blueprint for the hosted demo gateway (free plan, no card needed).
+# Render dashboard -> New -> Blueprint -> pick this repo. Values marked
+# `sync: false` are prompted for once; see DEPLOYMENT.md.
+services:
+  - type: web
+    name: sovereignfabric-gateway
+    runtime: docker
+    plan: free
+    region: singapore          # closest Render region to Australia; put Neon in Singapore too
+    dockerContext: ./api
+    dockerfilePath: ./api/Dockerfile
+    healthCheckPath: /healthz
+    autoDeploy: true
+    envVars:
+      - key: ENVIRONMENT
+        value: demo
+      - key: DEMO_MODE
+        value: "true"
+      - key: LLM_PROVIDER
+        value: gemini
+      - key: DATABASE_URL        # Neon *direct* (non-pooled) connection string
+        sync: false
+      - key: GEMINI_API_KEY      # from aistudio.google.com/apikey (no billing needed)
+        sync: false
+      - key: CORS_ORIGINS        # your Vercel URL, e.g. https://sovereignfabric.vercel.app
+        sync: false
+      - key: DEMO_ACCESS_CODE    # code the presenter types on the login screen
+        sync: false
+      - key: DEMO_TOKEN_SECRET
+        generateValue: true
+      - key: SF_DEMO_APP_KEY
+        generateValue: true
+      - key: DB_POOL_MAX
+        value: "3"
