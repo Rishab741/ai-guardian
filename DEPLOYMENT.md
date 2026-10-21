@@ -69,7 +69,13 @@ The free plan sleeps after ~15 minutes without traffic; the next request takes u
 
 ### 3. Console: Vercel (free Hobby plan)
 1. Sign up at [vercel.com](https://vercel.com) with GitHub → **Add New → Project** → this repo.
-2. **Root Directory:** `web`. **Environment variable:** `NEXT_PUBLIC_API_URL=https://<service>.onrender.com`.
+2. **Root Directory:** `web`. **Environment variables:**
+   | Key | Value |
+   |---|---|
+   | `NEXT_PUBLIC_API_URL` | `https://<service>.onrender.com` |
+   | `GATEWAY_URL` | the same URL (used server-side by Advisor Assist) |
+   | `ADVISOR_GATEWAY_KEY` | the `SF_DEMO_APP_KEY` value from Render's environment page |
+   | `ADVISOR_DIRECT_API_KEY` | optional: your Gemini key, so Advisor Assist's "before" mode really calls the provider. Without it, that mode only shows what would be sent |
 3. Deploy, then put the Vercel URL into Render's `CORS_ORIGINS` (Render redeploys automatically).
 
 ### 4. Optional: real Google sign-in (Firebase Spark, free)

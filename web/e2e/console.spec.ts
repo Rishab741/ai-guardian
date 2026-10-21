@@ -76,6 +76,7 @@ test("IT admin connects a new app and sends a test request through it", async ({
   await page.getByRole("button", { name: "Continue" }).click();
   await page.getByRole("button", { name: /Send a test request/ }).click();
   await page.getByRole("button", { name: "Send through the gateway" }).click();
-  await expect(page.getByText(/identifier\(s\) tokenized before the model saw them/)).toBeVisible({ timeout: 45_000 });
+  // Live model: allow for a busy model and the fallback to the next tier.
+  await expect(page.getByText(/identifier\(s\) tokenized before the model saw them/)).toBeVisible({ timeout: 90_000 });
   if (SHOTS) await page.screenshot({ path: `${SHOTS}/setup-test.png` });
 });

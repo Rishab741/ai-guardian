@@ -119,6 +119,13 @@ export const api = {
       body: JSON.stringify({ name, default_department: defaultDepartment, description }),
     }),
   rotateKey: (appId: string) => request<{ api_key: string }>(`/api/apps/${appId}/rotate-key`, { method: "POST" }),
+  warmup: () =>
+    request<{ ok: boolean; checks: { name: string; ok: boolean; ms: number; detail: string }[] }>("/api/demo/warmup", {
+      method: "POST",
+    }),
+  scenarios: () => request<Record<string, string>>("/api/demo/scenarios"),
+  tick: (count = 1, scenario?: string) =>
+    request<{ audit_ids: number[] }>("/api/demo/tick", { method: "POST", body: JSON.stringify({ count, scenario }) }),
   evidence: (days = 30) => request<EvidencePack>(`/api/reports/evidence?days=${days}`),
   roiPresets: () => request<Record<string, RoiPreset>>("/api/roi-presets"),
   roiProjection: (employees: number, queriesPerDay: number, breachCostUsd?: number) =>

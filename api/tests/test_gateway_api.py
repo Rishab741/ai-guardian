@@ -119,3 +119,17 @@ async def test_zz_no_raw_pii_persisted_and_chain_verifies(http):
         assert row["n"] == 0, table
     verify = await http.get("/api/audit/verify", headers={"Authorization": await token_for(http, "ciso")})
     assert verify.json()["ok"] is True
+
+
+async def test_rate_limit_applies_per_person(client, monkeypatch):
+    from app import gateway
+
+    monkeypatch.setattr(gateway, "_rate_windows", {})
+    q = [{"role": "user", "content": "hello"}]
+    for _ in range(30):
+        await client.chat.completions.create(model="sf-fast", messages=q, user="busy.person@harbourbank.example",
+                                             extra_headers={"X-SF-Cache": "no-store"})
+    with pytest.raises(openai.PermissionDeniedError):
+        await client.chat.completions.create(model="sf-fast", messages=q, user="busy.person@harbourbank.example")
+    # Someone else using the same app is unaffected.
+    await client.chat.completions.create(model="sf-fast", messages=q, user="calm.person@harbourbank.example")

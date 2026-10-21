@@ -32,7 +32,7 @@ async def evidence(tenant_id: str, days: int) -> dict:
             tenant_id, since,
         )
         simulated = await conn.fetchval(
-            "select count(*) from audit_events where tenant_id = $1 and ts >= $2 and provider = 'simulated'",
+            "select count(*) from audit_events where tenant_id = $1 and ts >= $2 and provider = 'simulated' and source <> 'simulator'",
             tenant_id, since,
         )
         console_users = await conn.fetch(

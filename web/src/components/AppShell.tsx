@@ -5,10 +5,11 @@ import { Sidebar } from "@/components/Sidebar";
 import { CommandPalette } from "@/components/CommandPalette";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { AuthGate, PageGuard } from "@/components/AuthGate";
+import { PresenterPanel } from "@/components/PresenterPanel";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const bare = pathname === "/login";
+  const bare = pathname === "/login" || !!pathname?.startsWith("/advisor");
 
   return (
     <ThemeProvider>
@@ -21,10 +22,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <main className="flex min-w-0 flex-1 flex-col overflow-hidden print:overflow-visible">
               <PageGuard>{children}</PageGuard>
             </main>
+            <PresenterPanel />
           </div>
         )}
       </AuthGate>
-      <CommandPalette />
+      {!bare && <CommandPalette />}
     </ThemeProvider>
   );
 }

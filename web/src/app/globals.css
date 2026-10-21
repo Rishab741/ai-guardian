@@ -31,6 +31,11 @@
   --brand: #2a78d6;
   --brand-ink: #ffffff;
 
+  /* Harbour Bank brand, used only by the Advisor Assist mock app */
+  --hb: #0f6b63;
+  --hb-ink: #ffffff;
+  --hb-soft: #e3f1ef;
+
   --background: var(--surface-page);
   --foreground: var(--text-primary);
 }
@@ -71,6 +76,10 @@
     --status-serious: #ec835a;
     --status-critical: #d03b3b;
 
+    --hb: #3cc4b4;
+    --hb-ink: #06201d;
+    --hb-soft: #12302c;
+
     --background: var(--surface-page);
     --foreground: var(--text-primary);
   }
@@ -105,6 +114,10 @@
   --status-warning: #fab219;
   --status-serious: #ec835a;
   --status-critical: #d03b3b;
+
+  --hb: #3cc4b4;
+  --hb-ink: #06201d;
+  --hb-soft: #12302c;
 
   --background: var(--surface-page);
   --foreground: var(--text-primary);

@@ -114,7 +114,10 @@ async def chat_completions(
     x_sf_user: str | None = Header(default=None),
     x_sf_user_token: str | None = Header(default=None),
     x_sf_cache: str | None = Header(default=None),
+    x_sf_debug: str | None = Header(default=None),
 ):
+    # Demo only: echo what actually left the boundary, for the payload inspector.
+    debug = config.DEMO_MODE and x_sf_debug == "1"
     if body.tools or body.functions:
         return openai_error(400, "unsupported_parameter", "Tool/function calling is not supported by this gateway version.")
     if body.n != 1:
@@ -136,7 +139,11 @@ async def chat_completions(
     try:
         prepared = await gateway.prepare(caller, messages, body.model, params, use_cache=use_cache)
     except GatewayError as e:
-        return openai_error(e.status, e.code, e.message, _sf_headers("-", e.audit_id))
+        resp = openai_error(e.status, e.code, e.message, _sf_headers("-", e.audit_id))
+        if debug:
+            resp = _with_trace(resp, {"audit_id": e.audit_id, "blocked": True, "messages_sent": None,
+                                      "pipeline": [s.__dict__ for s in e.trace]})
+        return resp
 
     completion_id = f"chatcmpl-{prepared.request_id.hex}"
     created = int(time.time())
@@ -146,17 +153,25 @@ async def chat_completions(
             outcome = await gateway.complete(prepared)
         except GatewayError as e:
             return openai_error(e.status, e.code, e.message, _sf_headers(prepared.request_id))
+        payload = {
+            "id": completion_id,
+            "object": "chat.completion",
+            "created": created,
+            "model": outcome.model_used,
+            "choices": [{"index": 0, "message": {"role": "assistant", "content": outcome.text},
+                         "finish_reason": outcome.finish_reason}],
+            "usage": {"prompt_tokens": outcome.input_tokens, "completion_tokens": outcome.output_tokens,
+                      "total_tokens": outcome.input_tokens + outcome.output_tokens},
+        }
+        if debug:
+            payload["sf_trace"] = {
+                "audit_id": outcome.audit_id, "blocked": False, "messages_sent": prepared.messages,
+                "response_received": outcome.response_redacted, "redactions": outcome.redactions,
+                "tier": outcome.tier, "model": outcome.model_used, "cache_hit": outcome.cache_hit,
+                "pipeline": [s.__dict__ for s in outcome.trace],
+            }
         return JSONResponse(
-            {
-                "id": completion_id,
-                "object": "chat.completion",
-                "created": created,
-                "model": outcome.model_used,
-                "choices": [{"index": 0, "message": {"role": "assistant", "content": outcome.text},
-                             "finish_reason": outcome.finish_reason}],
-                "usage": {"prompt_tokens": outcome.input_tokens, "completion_tokens": outcome.output_tokens,
-                          "total_tokens": outcome.input_tokens + outcome.output_tokens},
-            },
+            payload,
             headers=_sf_headers(prepared.request_id, outcome.audit_id, {
                 "X-SF-Cache": "hit" if outcome.cache_hit else "miss",
                 "X-SF-Redactions": str(len(outcome.redactions)),
@@ -245,6 +260,13 @@ async def embeddings(
          "usage": {"prompt_tokens": tokens, "total_tokens": tokens}},
         headers=_sf_headers(base["request_id"], audit_id, {"X-SF-Redactions": str(len(vault))}),
     )
+
+
+def _with_trace(resp: JSONResponse, trace: dict) -> JSONResponse:
+    body = json.loads(resp.body)
+    body["sf_trace"] = trace
+    return JSONResponse(body, status_code=resp.status_code, headers={
+        k: v for k, v in resp.headers.items() if k.lower().startswith("x-sf-")})
 
 
 def install_error_handlers(app) -> None:

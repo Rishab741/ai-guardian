@@ -34,7 +34,9 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const [me, setMe] = useState<Me | null>(null);
   const [ready, setReady] = useState(false);
-  const onLogin = pathname === "/login";
+  // Pages outside the console: the sign-in screen and the Advisor Assist mock
+  // bank app (an employee tool that never sees console data).
+  const onLogin = pathname === "/login" || !!pathname?.startsWith("/advisor");
 
   const signOut = useCallback(async () => {
     await clearSession();

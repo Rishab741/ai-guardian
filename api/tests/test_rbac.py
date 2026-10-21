@@ -64,7 +64,7 @@ async def test_executives_see_pseudonyms_when_privacy_mode_requires(http, client
     await client.chat.completions.create(model="sf-fast", user="amelia.whitlock@harbourbank.example",
                                          messages=[{"role": "user", "content": "Summarise churn for retail"}])
     exec_auth = {"Authorization": await token_for(http, "executive")}
-    named = (await http.get("/api/stats/risky-users", headers=exec_auth)).json()
+    named = (await http.get("/api/stats/risky-users?limit=50", headers=exec_auth)).json()
     assert any(r["user_id"] == "amelia.whitlock@harbourbank.example" for r in named)
 
     pool = await db.get_pool()

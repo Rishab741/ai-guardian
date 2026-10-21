@@ -51,6 +51,11 @@ function FeedRow({ e, linkable }: { e: FeedEvent; linkable: boolean }) {
           {who}
           <span>via {e.app_name ?? "Console"}</span>
           <span className="text-[var(--text-muted)]">· {e.department_label}</span>
+          {e.source === "simulator" && (
+            <span className="rounded border border-[var(--border-hairline)] px-1 text-[9.5px] uppercase tracking-wide text-[var(--text-muted)]" title="Simulated traffic from the presenter panel">
+              sim
+            </span>
+          )}
         </div>
         <div className="mt-1 flex flex-wrap items-center gap-1.5">
           <span

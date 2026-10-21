@@ -10,7 +10,7 @@ Status: ✅ done · 🔨 in progress · ⏳ not started · 🙋 needs you
 | **2. Security and RBAC** | 15 Oct | Identity Platform login (replaces Supabase); roles; `require_role` on every `/api/*`; persona switcher (demo); verified end-user JWT header | RBAC matrix test green | ✅ (personas + simulated SSO; Firebase Google sign-in ready, needs a project) |
 | **3. Free hosted deployment (no card)** | 15 Oct | Render Blueprint (gateway, Docker, free), Neon Postgres + pgvector (free), Vercel (console, free), optional Firebase Spark for Google sign-in; laptop + Cloudflare tunnel option; hosted-config safety checks. Google Cloud stays the production target once billing works | Public URL works at $0 | 🔨 files ready; 🙋 needs your sign-ups (see DEPLOYMENT.md) |
 | **4. Console v2** | 15 Oct | Onboarding wizard; command centre with live SSE feed; risk drill-down by user/app; policy editor + simulator + approvals; CPS 230/234 evidence pack | Full demo script clickable | ✅ (live feed, People & Apps, policy approvals with impact simulation, evidence pack, setup wizard) |
-| **5. Demo assets** | 30 Oct – 2 Nov | "Advisor Assist" mock app (one-line `baseURL` swap); synthetic workforce; browser-driven traffic simulator; presenter control panel | Two clean cold-start rehearsals | ⏳ |
+| **5. Demo assets** | 22 Oct | "Advisor Assist" mock app (one-line `baseURL` swap); synthetic workforce; browser-driven traffic simulator; presenter control panel | Two clean cold-start rehearsals | ✅ (Advisor Assist with live one-line switch and payload inspector, simulator scenarios, presenter panel, run-of-show in DEMO_SCRIPT.md) |
 | **6. Connector mock + packaging** | 3 – 4 Nov | Read-replica mock via tool calling; NER (Presidio); docker-compose evaluation bundle; Helm chart; signed license files | `docker compose up` works offline | ⏳ |
 | **7. Hardening** | 5 – 6 Nov | Red-team PII set, threat model, runbook, rehearsal | Demo-ready | ⏳ |
 
@@ -18,12 +18,7 @@ Status: ✅ done · 🔨 in progress · ⏳ not started · 🙋 needs you
 
 ## What you need to provide (🙋)
 
-| When | Item |
-|---|---|
-| Phase 2 | Decide: real Entra ID/OIDC SSO wiring, or a mocked "connected" state for the first meeting |
-| Phase 3 | Push `feat/prod-demo` and merge to `master` |
-| Phase 3 | Sign up (GitHub login, no card): Neon, Render, Vercel; follow DEPLOYMENT.md §C |
-| Later | Google Cloud billing (production target). Not needed for the demo |
+See [REQUIREMENTS.md](REQUIREMENTS.md) for the full list of accounts, keys and decisions.
 
 ## Findings from Phase 0
 

@@ -98,6 +98,7 @@ class Outcome:
 # ── rate limiting ────────────────────────────────────────────────────────────
 
 _rate_windows: dict[str, deque] = {}
+APP_RATE_MULTIPLIER = 20  # app-level budget when no end user is identified
 
 
 def _rate_limited(key: str, per_minute: int) -> bool:
@@ -194,10 +195,16 @@ async def prepare(
     active = await policy.get_active(caller.tenant_id)
     decision = policy.evaluate(active, caller.department, pii_types, raw_text)
 
-    rate_key = f"{caller.tenant_id}|{caller.end_user_id or caller.app_id or 'console'}"
-    if decision.allowed and _rate_limited(rate_key, decision.rate_limit_per_user_per_min):
+    # Per person when the app says who's asking; an app that doesn't is
+    # carrying many people's traffic, so it gets a proportionally larger budget.
+    if caller.end_user_id:
+        rate_key, limit = f"{caller.tenant_id}|user|{caller.end_user_id}", decision.rate_limit_per_user_per_min
+    else:
+        rate_key = f"{caller.tenant_id}|app|{caller.app_id or 'console'}"
+        limit = decision.rate_limit_per_user_per_min * APP_RATE_MULTIPLIER
+    if decision.allowed and _rate_limited(rate_key, limit):
         decision.allowed = False
-        decision.reason = f"Rate limit: more than {decision.rate_limit_per_user_per_min} requests per minute."
+        decision.reason = f"Rate limit: more than {limit} requests per minute."
 
     flags_note = f" Flags: {', '.join(decision.flags)}." if decision.flags else ""
     trace.append(TraceStep(
