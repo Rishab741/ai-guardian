@@ -4,7 +4,7 @@
  * provider with the standard OpenAI SDK. The only thing SovereignFabric
  * changes is which base URL that SDK points at.
  */
-export const GATEWAY_URL = process.env.GATEWAY_URL ?? process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+export const GATEWAY_URL = process.env.GATEWAY_URL || process.env.SF_GATEWAY_TARGET || "http://localhost:8000";
 export const GATEWAY_KEY = process.env.ADVISOR_GATEWAY_KEY ?? "";
 
 export const DIRECT_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai/";

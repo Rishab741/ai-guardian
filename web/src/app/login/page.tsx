@@ -40,11 +40,12 @@ export default function LoginPage() {
           setConfig(c);
           setWaking(false);
           return;
-        } catch {
+        } catch (e) {
           if (Date.now() > deadline) {
             if (!cancelled) {
               setWaking(false);
-              setError("Can't reach the gateway. Check that the API is running, then reload this page.");
+              const why = e instanceof Error ? e.message : String(e);
+              setError(`Can't reach the gateway (${why}). Open /diag on this site for details, then reload this page.`);
             }
             return;
           }
