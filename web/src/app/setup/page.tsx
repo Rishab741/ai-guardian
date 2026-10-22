@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { api, BASE_URL } from "@/lib/api";
+import { api, BASE_URL, publicGatewayUrl } from "@/lib/api";
 import { Button, Empty, PageHeader, Panel, timeAgo } from "@/components/ui";
 import type { AppInfo, Department, PolicyPack, TenantSettings } from "@/lib/types";
 
@@ -300,7 +300,7 @@ function ConnectApp({ onKey, onDone }: { onKey: (k: string) => void; onDone: () 
   }
 
   const snippet = created
-    ? `from openai import OpenAI\n\nclient = OpenAI(\n    base_url="${BASE_URL}/v1",   # the only change\n    api_key="${created.key}",\n)`
+    ? `from openai import OpenAI\n\nclient = OpenAI(\n    base_url="${publicGatewayUrl()}/v1",   # the only change\n    api_key="${created.key}",\n)`
     : "";
 
   return (

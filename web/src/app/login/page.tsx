@@ -24,14 +24,38 @@ export default function LoginPage() {
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  const [waking, setWaking] = useState(false);
+
   useEffect(() => {
-    api
-      .authConfig()
-      .then((c) => {
-        setConfig(c);
-        setFirebaseConfig(c.firebase);
-      })
-      .catch(() => setError("Can't reach the gateway. Check that the API is running."));
+    // Free hosting sleeps when idle and takes up to a minute to wake, so keep
+    // trying for a while before reporting the gateway as unreachable.
+    let cancelled = false;
+    (async () => {
+      const deadline = Date.now() + 90_000;
+      for (let attempt = 0; !cancelled; attempt++) {
+        try {
+          const c = await api.authConfig();
+          if (cancelled) return;
+          setFirebaseConfig(c.firebase);
+          setConfig(c);
+          setWaking(false);
+          return;
+        } catch {
+          if (Date.now() > deadline) {
+            if (!cancelled) {
+              setWaking(false);
+              setError("Can't reach the gateway. Check that the API is running, then reload this page.");
+            }
+            return;
+          }
+          if (attempt === 0 && !cancelled) setWaking(true);
+          await new Promise((r) => setTimeout(r, 4000));
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   async function finish() {
@@ -168,6 +192,12 @@ export default function LoginPage() {
           </p>
         )}
 
+        {waking && !config && (
+          <div className="mt-5 flex items-center gap-2 text-[12.5px] text-[var(--text-secondary)]">
+            <span className="pulse-dot h-2 w-2 rounded-full bg-[var(--status-warning)]" />
+            Waking up the gateway. This takes up to a minute after it has been idle.
+          </div>
+        )}
         {error && <div className="mt-3 text-[12px] text-[var(--status-critical)]">{error}</div>}
 
         <div className="mt-6 border-t border-[var(--border-hairline)] pt-3 text-[11px] text-[var(--text-muted)]">

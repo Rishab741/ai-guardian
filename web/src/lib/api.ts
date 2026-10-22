@@ -26,7 +26,15 @@ import type {
 } from "./types";
 import { bearer, signOut } from "./auth";
 
-export const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+// Empty on Vercel: requests go to this site's own /api and /v1, which
+// next.config.ts forwards to the gateway (same origin, no CORS).
+export const BASE_URL =
+  process.env.NEXT_PUBLIC_API_PROXY === "1" ? "" : (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000");
+
+/** The gateway address as an app developer would type it. */
+export function publicGatewayUrl(): string {
+  return BASE_URL || (typeof window === "undefined" ? "" : window.location.origin);
+}
 
 export class ApiError extends Error {
   constructor(public status: number, message: string) {

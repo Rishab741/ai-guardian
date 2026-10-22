@@ -57,7 +57,7 @@ async def event_stream(request: Request, user: ConsoleUser = Depends(require("vi
             feed.unsubscribe(queue)
 
     return StreamingResponse(gen(), media_type="text/event-stream",
-                             headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+                             headers={"Cache-Control": "no-cache, no-transform", "X-Accel-Buffering": "no"})
 
 
 # ── people and apps ──────────────────────────────────────────────────────────

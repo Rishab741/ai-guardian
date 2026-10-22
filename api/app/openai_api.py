@@ -211,7 +211,7 @@ async def chat_completions(
         yield "data: [DONE]\n\n"
 
     return StreamingResponse(sse(), media_type="text/event-stream",
-                             headers=_sf_headers(prepared.request_id, None, {"Cache-Control": "no-cache", "X-Accel-Buffering": "no"}))
+                             headers=_sf_headers(prepared.request_id, None, {"Cache-Control": "no-cache, no-transform", "X-Accel-Buffering": "no"}))
 
 
 @router.post("/embeddings")
