@@ -91,14 +91,30 @@ async def append(events: list[dict], notify: bool = True) -> list[int]:
                 tenant_id,
                 GENESIS,
             )
-            prev = await conn.fetchval(
-                "select last_hash from audit_chain_heads where tenant_id = $1 for update", tenant_id
+            head = await conn.fetchrow(
+                "select last_id, last_hash from audit_chain_heads where tenant_id = $1 for update", tenant_id
             )
+            prev = head["last_hash"]
             for e in rows:
                 e["prev_hash"] = prev
                 e["hash"] = compute_hash(prev, e)
-                ids.append(await conn.fetchval(sql, *[e[c] for c in cols]))
                 prev = e["hash"]
+            if len(rows) <= 10:
+                for e in rows:
+                    ids.append(await conn.fetchval(sql, *[e[c] for c in cols]))
+            else:
+                # Bulk loads (seeding) go in one COPY instead of a round trip per
+                # row, which matters when the database is across the internet.
+                # The chain-head row lock serialises appends per tenant, and COPY
+                # assigns identities in row order, so the new ids are the next
+                # ones for this tenant.
+                await conn.copy_records_to_table(
+                    "audit_events", records=[tuple(e[c] for c in cols) for e in rows], columns=cols
+                )
+                ids = [r["id"] for r in await conn.fetch(
+                    "select id from audit_events where tenant_id = $1 and id > $2 order by id", tenant_id, head["last_id"]
+                )]
+                assert len(ids) == len(rows), "bulk audit append returned an unexpected number of rows"
             await conn.execute(
                 "update audit_chain_heads set last_id = $2, last_hash = $3 where tenant_id = $1", tenant_id, ids[-1], prev
             )
