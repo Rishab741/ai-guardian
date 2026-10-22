@@ -234,3 +234,27 @@ def policy_packs(department_ids: list[str]) -> dict[str, dict]:
                        {"deny_terms": [], "prompt_injection": "flag", "rehydrate": {}}),
         },
     }
+
+
+async def evaluate_everywhere(tenant_id: str, prompt: str) -> dict:
+    """Dry run of the active policy: the same prompt as every department
+    would send it. No model is called and nothing is stored."""
+    active = await policy.get_active(tenant_id)
+    detections = detect(prompt)
+    pii = [d.pii_type for d in detections]
+    outcomes = []
+    for dept, label in sorted(active.department_labels.items(), key=lambda kv: kv[1]):
+        d = policy.evaluate(active, dept, pii, prompt)
+        rules = active.doc.get("departments", {}).get(dept, {}).get("data_classes", {})
+        actions = {t: rules.get(t, rules.get("*", "redact")) for t in sorted(set(pii))}
+        text, _ = redact(prompt, Vault(), frozenset(d.allowed_raw_types))
+        outcomes.append({
+            "department": dept, "department_label": label, "allowed": d.allowed, "reason": d.reason,
+            "actions": actions, "flags": d.flags, "max_tier": d.max_tier, "sent_to_model": text if d.allowed else None,
+        })
+    return {
+        "policy_version": active.version,
+        "detections": [{"pii_type": d.pii_type, "label": PII_LABELS.get(d.pii_type, d.pii_type), "start": d.start, "end": d.end}
+                       for d in detections],
+        "outcomes": outcomes,
+    }

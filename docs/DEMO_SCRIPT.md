@@ -39,6 +39,13 @@ For presenting SovereignFabric to investors or a bank's executive team. Everythi
 
 > "Health data is outside Retail Banking's entitlement, so the request is stopped before it leaves. That's per-department policy, not a blanket rule."
 
+## 3b. Authority and role (1 min) · right window, Compliance Check
+
+- Pick the Medicare sample. Under **Asked by**, choose a Retail Banking advisor, then **Check compliance**.
+- The verdict card says **Blocked**, with the exact entitlement reason. The table below shows the same prompt for every department: Legal & Risk is **allowed**, with both identifiers replaced.
+
+> "Same words, different person, different outcome. The decision follows who is asking and what their role is entitled to, and you can test any prompt here before it ever reaches a model."
+
 ## 4. The executive view (3 min) · right window
 
 - **Command Centre:** the requests you just made are already in **Live activity**.

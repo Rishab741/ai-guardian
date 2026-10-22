@@ -12,6 +12,7 @@ const NAV = [
   { href: "/dashboard", label: "Command Centre", icon: DashboardIcon },
   { href: "/risk", label: "People & Apps", icon: PeopleIcon },
   { href: "/policies", label: "Policies", icon: PolicyIcon },
+  { href: "/evaluate", label: "Compliance Check", icon: ShieldIcon },
   { href: "/reports", label: "Evidence Pack", icon: ReportIcon },
   { href: "/discovery", label: "Discovery Report", icon: ShieldIcon },
   { href: "/chat", label: "Gateway Playground", icon: ChatIcon },

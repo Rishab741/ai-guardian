@@ -297,3 +297,20 @@ export type EvidencePack = {
     resilience: { requests_rerouted: number; served_by_offline_fallback: number; cache_hit_rate: number };
   };
 };
+
+export type ComplianceOutcome = {
+  department: string;
+  department_label: string;
+  allowed: boolean;
+  reason: string | null;
+  actions: Record<string, DataAction>;
+  flags: string[];
+  max_tier: string;
+  sent_to_model: string | null;
+};
+export type ComplianceResult = {
+  policy_version: number;
+  detections: { pii_type: string; label: string; start: number; end: number }[];
+  outcomes: ComplianceOutcome[];
+};
+export type StaffMember = { id: string; display_name: string; title: string; department: string; department_label: string };

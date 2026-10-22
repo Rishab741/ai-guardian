@@ -181,6 +181,36 @@ async def simulate_impact(body: ImpactRequest, user: ConsoleUser = Depends(requi
     return await governance.simulate_impact(user.tenant_id, doc, body.days)
 
 
+class EvaluateRequest(BaseModel):
+    prompt: str = Field(..., min_length=1, max_length=4000)
+
+
+@router.post("/compliance/evaluate")
+async def compliance_evaluate(body: EvaluateRequest, user: ConsoleUser = Depends(require("view_dashboards"))):
+    """Dry-run the active policy for one prompt across every department."""
+    return await governance.evaluate_everywhere(user.tenant_id, body.prompt)
+
+
+@router.get("/directory")
+async def staff_directory(user: ConsoleUser = Depends(require("view_dashboards"))):
+    """Employees known to the gateway, for 'evaluate as this person'."""
+    names = await console_auth.can_see_identities(user)
+    pool = await db.get_pool()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(
+            """select u.id, u.display_name, u.title, u.department, d.label as department_label
+               from end_users u join departments d on d.tenant_id = u.tenant_id and d.id = u.department
+               where u.tenant_id = $1 order by d.label, u.display_name""",
+            user.tenant_id,
+        )
+    out = [dict(r) for r in rows]
+    if not names:
+        for r in out:
+            r["display_name"], r["title"] = _pseudonym(r["id"]), ""
+            r["id"] = r["display_name"]
+    return out
+
+
 # ── tenant setup ─────────────────────────────────────────────────────────────
 
 class Settings(BaseModel):

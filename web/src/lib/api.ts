@@ -1,4 +1,6 @@
 import type {
+  ComplianceResult,
+  StaffMember,
   AppInfo,
   AppStat,
   AuditLog,
@@ -127,6 +129,9 @@ export const api = {
       body: JSON.stringify({ name, default_department: defaultDepartment, description }),
     }),
   rotateKey: (appId: string) => request<{ api_key: string }>(`/api/apps/${appId}/rotate-key`, { method: "POST" }),
+  evaluate: (prompt: string) =>
+    request<ComplianceResult>("/api/compliance/evaluate", { method: "POST", body: JSON.stringify({ prompt }) }),
+  directory: () => request<StaffMember[]>("/api/directory"),
   warmup: () =>
     request<{ ok: boolean; checks: { name: string; ok: boolean; ms: number; detail: string }[] }>("/api/demo/warmup", {
       method: "POST",

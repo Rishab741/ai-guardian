@@ -110,3 +110,15 @@ async def test_person_view_respects_privacy(http, client):
     assert ciso["totals"]["requests"] >= 1 and ciso["identity_visible"]
     admin = await http.get("/api/people/isla.doyle@harbourbank.example", headers=await auth(http, "tenant_admin"))
     assert admin.status_code == 403  # IT admins don't get people risk views
+
+
+async def test_compliance_check_compares_every_department(http):
+    r = await http.post("/api/compliance/evaluate", headers=await auth(http, "executive"),
+                        json={"prompt": "Check Medicare 2123 45670 1 and email a@b.com"})
+    body = r.json()
+    by_dept = {o["department"]: o for o in body["outcomes"]}
+    assert [d["pii_type"] for d in body["detections"]] == ["AU_MEDICARE", "EMAIL"]
+    assert not by_dept["retail_banking"]["allowed"] and "Medicare" in by_dept["retail_banking"]["reason"]
+    assert by_dept["legal_risk"]["allowed"] and by_dept["legal_risk"]["sent_to_model"] == "Check Medicare ⟦AU_MEDICARE_1⟧ and email ⟦EMAIL_1⟧"
+    assert (await http.post("/api/compliance/evaluate", headers=await auth(http, "developer"), json={"prompt": "x"})).status_code == 403
+    assert (await http.get("/api/directory", headers=await auth(http, "executive"))).status_code == 200

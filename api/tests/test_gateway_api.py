@@ -133,3 +133,23 @@ async def test_rate_limit_applies_per_person(client, monkeypatch):
         await client.chat.completions.create(model="sf-fast", messages=q, user="busy.person@harbourbank.example")
     # Someone else using the same app is unaffected.
     await client.chat.completions.create(model="sf-fast", messages=q, user="calm.person@harbourbank.example")
+
+
+async def test_provider_rejection_falls_back_with_the_reason(client, monkeypatch):
+    """A bad API key (Gemini answers 400) must not break the demo: the answer
+    comes from the labelled simulated provider and the reason is recorded."""
+    class Rejecting:
+        name = "gemini"
+
+        async def chat(self, *a, **k):
+            raise ProviderError("400: API key not valid. Please pass a valid API key.", retryable=False, status=400)
+
+    real = gateway._provider_for
+    monkeypatch.setattr(gateway, "_provider_for", lambda tier: real(tier) if tier == "simulated" else Rejecting())
+    raw = await client.chat.completions.with_raw_response.create(
+        model="sf-fast", messages=[{"role": "user", "content": "Draft a reply about card 4111 1111 1111 1111"}],
+        extra_headers={"X-SF-Cache": "no-store"},
+    )
+    assert raw.headers["x-sf-tier"] == "simulated"
+    row = await fetchrow("select fallbacks from audit_events where id = $1", int(raw.headers["x-sf-audit-id"]))
+    assert "API key not valid" in row["fallbacks"][0]

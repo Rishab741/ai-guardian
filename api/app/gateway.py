@@ -9,6 +9,7 @@ Every stage appends a TraceStep, which the console renders and which makes
 each decision explainable after the fact.
 """
 import asyncio
+import logging
 import time
 import uuid
 from collections import deque
@@ -18,6 +19,8 @@ from dataclasses import dataclass, field
 from . import audit, cache, config, policy, providers, routing
 from .providers import ChatParams, ProviderError, StreamUsage
 from .redaction import PII_LABELS, RehydrationStats, StreamRehydrator, Vault, detect, mask_value, redact, rehydrate
+
+log = logging.getLogger(__name__)
 
 PLACEHOLDER_INSTRUCTION = (
     "Some values in this conversation were replaced with placeholders such as ⟦EMAIL_1⟧ to protect privacy. "
@@ -302,9 +305,18 @@ async def _call(p: Prepared) -> tuple[providers.ChatResult, str, str, list[routi
             return result, tier, model, hops
         except ProviderError as e:
             routing.quota.penalise(model, e)
-            hops.append(routing.Hop(tier, model, f"failed:{e.status}"))
-            if not e.retryable:
-                raise GatewayError(502, "provider_error", f"Model provider rejected the request ({e.status}).") from e
+            if e.retryable:
+                hops.append(routing.Hop(tier, model, f"failed:{e.status}"))
+                continue
+            # A rejection (bad key, bad request) would repeat on every live
+            # model, so go straight to the labelled offline answer if allowed.
+            log.warning("model provider rejected request: %s", e)
+            hops.append(routing.Hop(tier, model, f"rejected:{e}"))
+            if not config.ALLOW_SIMULATED_FALLBACK:
+                raise GatewayError(502, "provider_error", f"Model provider rejected the request ({e}).") from e
+            result = await providers.get("simulated").chat("sf-simulated", p.messages, p.params)
+            hops.append(routing.Hop("simulated", "sf-simulated", "ok"))
+            return result, "simulated", "sf-simulated", hops
     raise GatewayError(503, "no_model_available", "All model tiers are currently unavailable. Try again shortly.")
 
 
@@ -424,9 +436,12 @@ async def stream(p: Prepared, out: StreamResult) -> AsyncIterator[str]:
         else:
             gen = None
             first = None
+            rejected = False
             for t in routing.chain(p.tier):
                 m = _model_name(t)
                 provider = _provider_for(t)
+                if rejected and provider.name != "simulated":
+                    continue  # a rejection would repeat on every live model
                 if provider.name != "simulated":
                     reason = await routing.quota.reserve(m)
                     if reason:
@@ -440,10 +455,15 @@ async def stream(p: Prepared, out: StreamResult) -> AsyncIterator[str]:
                 except (ProviderError, asyncio.TimeoutError) as e:
                     err = e if isinstance(e, ProviderError) else ProviderError("first chunk timed out", retryable=True, status=504)
                     routing.quota.penalise(m, err)
-                    hops.append(routing.Hop(t, m, f"failed:{err.status}"))
                     gen = None
-                    if not err.retryable:
-                        raise GatewayError(502, "provider_error", f"Model provider rejected the request ({err.status}).") from e
+                    if err.retryable:
+                        hops.append(routing.Hop(t, m, f"failed:{err.status}"))
+                        continue
+                    log.warning("model provider rejected request: %s", err)
+                    hops.append(routing.Hop(t, m, f"rejected:{err}"))
+                    if not config.ALLOW_SIMULATED_FALLBACK:
+                        raise GatewayError(502, "provider_error", f"Model provider rejected the request ({err}).") from e
+                    rejected = True
                     continue
                 hops.append(routing.Hop(t, m, "ok"))
                 tier, model = t, m

@@ -131,8 +131,20 @@ def _translate(e: openai.APIError) -> ProviderError:
         # 404 (model retired) is retryable in the routing sense: another
         # model may still serve the request.
         retryable = status in (404, 408, 429) or status >= 500
-        return ProviderError(f"provider returned {status}", retryable=retryable, status=status)
+        return ProviderError(f"{status}: {_reason(e)}", retryable=retryable, status=status)
     return ProviderError(str(e), retryable=True)
+
+
+def _reason(e: openai.APIStatusError) -> str:
+    """The provider's own explanation (e.g. 'API key not valid'), shortened."""
+    body = e.body
+    msg = None
+    if isinstance(body, dict):
+        err = body.get("error", body)
+        msg = err.get("message") if isinstance(err, dict) else None
+    elif isinstance(body, list) and body and isinstance(body[0], dict):
+        msg = body[0].get("error", {}).get("message")
+    return (msg or e.message or "rejected").strip().splitlines()[0][:160]
 
 
 _TEMPLATES = [
